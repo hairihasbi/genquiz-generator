@@ -65,7 +65,8 @@ import {
   BookOpenCheck,
   LogIn,
   Link2,
-  ArrowLeft
+  ArrowLeft,
+  ChevronLeft
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -105,6 +106,22 @@ const GlobalAndPrintStyles = () => (
         /* Prevent math from being too small or too large */
         .mjx-chtml {
             font-size: 100% !important;
+        }
+
+        /* Scrollbar styling for the preview window */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
 
         @media print {
@@ -340,8 +357,7 @@ const UserManagement = () => {
     );
 };
 
-// 5. Quiz Result View (Replaces QuizPreviewModal)
-// Full page view, improved for multi-page printing and specific exports
+// 5. Quiz Result View (Redesigned)
 const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) => {
    const [paperSize, setPaperSize] = useState<'A4' | 'Folio'>('A4');
    const [showAnswers, setShowAnswers] = useState(false);
@@ -361,12 +377,6 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
 
    // Separate Export Functions
    const handleExportDocx = (type: 'QUESTIONS' | 'BLUEPRINT') => {
-       // Temporarily force the view to the desired type to capture HTML
-       // In a real implementation, we might render a hidden div, but here we can just ensure
-       // the user exports what they see or we guide them. 
-       // For simplicity in this logic: We export the current active view content.
-       // However, to support specific buttons, we check activeTab. 
-       
        if (activeTab !== type) {
            alert(`Silakan pindah ke tab ${type === 'QUESTIONS' ? 'Soal' : 'Kisi-Kisi'} terlebih dahulu untuk mengunduh dokumen tersebut.`);
            return;
@@ -412,128 +422,185 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
    };
 
    // Dimensions logic
-   // A4: 210mm wide. Folio requested: 22.5cm (225mm) wide x 33cm (330mm) high.
    const dims = paperSize === 'A4' ? 'w-[210mm] min-h-[297mm]' : 'w-[225mm] min-h-[330mm]';
 
    return (
-       <div id="quiz-result-view" className="fixed inset-0 z-[60] bg-slate-100 dark:bg-slate-900 flex flex-col overflow-hidden">
-           {/* Top Navigation Bar (No Print) */}
-           <div className="no-print bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-4 shadow-sm z-20">
-               <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-                   <div className="flex items-center gap-4 w-full md:w-auto">
-                       <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" title="Kembali">
-                           <ArrowLeft size={24} className="text-slate-600 dark:text-slate-300"/>
+       <div id="quiz-result-view" className="fixed inset-0 z-[60] bg-slate-100 dark:bg-slate-950 flex flex-col overflow-hidden font-sans">
+           
+           {/* Modern Glassmorphism Header (No Print) */}
+           <div className="no-print fixed top-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+               <div className="max-w-[1920px] mx-auto px-6 h-20 flex justify-between items-center">
+                   
+                   {/* Left: Branding & Title */}
+                   <div className="flex items-center gap-5">
+                       <button 
+                           onClick={onClose} 
+                           className="group flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 transition-all active:scale-95"
+                           title="Kembali"
+                       >
+                           <ChevronLeft size={24} className="group-hover:-translate-x-0.5 transition-transform"/>
                        </button>
-                       <div>
-                            <h3 className="font-bold text-lg text-slate-800 dark:text-white truncate max-w-[200px] md:max-w-xs">{quiz.title}</h3>
-                            <p className="text-xs text-slate-500">{quiz.subject} • {quiz.questions.length} Soal</p>
+                       <div className="flex flex-col">
+                            <h3 className="font-extrabold text-xl text-slate-800 dark:text-white truncate max-w-md tracking-tight leading-tight">
+                                {quiz.title}
+                            </h3>
+                            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mt-0.5">
+                                <span className="bg-brand-100 text-brand-700 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider">{quiz.subject}</span>
+                                <span>•</span>
+                                <span>{quiz.questions.length} Butir Soal</span>
+                            </div>
                        </div>
                    </div>
 
-                   <div className="flex flex-wrap items-center justify-center gap-3">
-                       {/* Controls Group */}
-                       <div className="flex bg-slate-100 dark:bg-slate-900 rounded-lg p-1 gap-1 border border-slate-200 dark:border-slate-700">
-                           <button onClick={() => setActiveTab('QUESTIONS')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'QUESTIONS' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500 hover:text-slate-700'}`}>Soal</button>
-                           <button onClick={() => setActiveTab('BLUEPRINT')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'BLUEPRINT' ? 'bg-white dark:bg-slate-700 shadow text-brand-600 dark:text-white' : 'text-slate-500 hover:text-slate-700'}`}>Kisi-Kisi</button>
-                       </div>
+                   {/* Center: View Controls */}
+                   <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden xl:flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner">
+                       <button onClick={() => setActiveTab('QUESTIONS')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'QUESTIONS' ? 'bg-white dark:bg-slate-700 text-brand-600 shadow-sm scale-105' : 'text-slate-500 hover:text-slate-700'}`}>
+                           <FileText size={16}/> Soal Preview
+                       </button>
+                       <button onClick={() => setActiveTab('BLUEPRINT')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'BLUEPRINT' ? 'bg-white dark:bg-slate-700 text-brand-600 shadow-sm scale-105' : 'text-slate-500 hover:text-slate-700'}`}>
+                           <Terminal size={16}/> Kisi-Kisi
+                       </button>
+                   </div>
 
-                       <div className="h-8 w-px bg-slate-300 dark:bg-slate-700 mx-1 hidden md:block"></div>
-
-                       <div className="flex items-center gap-2">
-                           <select value={paperSize} onChange={(e) => setPaperSize(e.target.value as any)} className="bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs font-bold px-2 py-2 rounded-lg outline-none focus:ring-2 focus:ring-brand-500">
-                               <option value="A4">A4 (21x29.7cm)</option>
-                               <option value="Folio">Folio (22.5x33cm)</option>
-                           </select>
+                   {/* Right: Actions */}
+                   <div className="flex items-center gap-3">
+                       
+                       {/* Settings Group */}
+                       <div className="hidden md:flex items-center gap-2 mr-2">
+                           <div className="relative group">
+                               <select 
+                                   value={paperSize} 
+                                   onChange={(e) => setPaperSize(e.target.value as any)} 
+                                   className="appearance-none bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs pl-4 pr-8 py-2.5 rounded-xl border-transparent focus:border-brand-500 focus:ring-0 cursor-pointer hover:bg-slate-200 transition-colors"
+                               >
+                                   <option value="A4">Kertas: A4</option>
+                                   <option value="Folio">Kertas: Folio</option>
+                               </select>
+                               <ChevronDown size={14} className="absolute right-3 top-3 text-slate-400 pointer-events-none"/>
+                           </div>
                            
                            {activeTab === 'QUESTIONS' && (
                                <button 
                                   onClick={() => setShowAnswers(!showAnswers)} 
-                                  className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors flex items-center gap-1 ${showAnswers ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm ${showAnswers ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                                >
-                                   {showAnswers ? <Eye size={14}/> : <EyeOff size={14}/>}
-                                   <span className="hidden sm:inline">Kunci</span>
+                                   {showAnswers ? <Eye size={16}/> : <EyeOff size={16}/>}
+                                   <span className="hidden lg:inline">{showAnswers ? 'Sembunyikan Kunci' : 'Lihat Kunci'}</span>
                                </button>
                            )}
                        </div>
 
-                       <div className="h-8 w-px bg-slate-300 dark:bg-slate-700 mx-1 hidden md:block"></div>
+                       <div className="h-8 w-px bg-slate-300 dark:bg-slate-700 mx-2 hidden md:block"></div>
 
-                       {/* Export Actions */}
+                       {/* Export Group */}
                        <div className="flex items-center gap-2">
-                            <button onClick={() => handleExportDocx('QUESTIONS')} className="flex items-center gap-1 px-3 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 text-xs font-bold transition-colors">
-                                <FileType size={14}/> DOCX Soal
+                            <button onClick={() => handleExportDocx('QUESTIONS')} className="p-2.5 md:px-4 md:py-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold transition-all flex items-center gap-2" title="Download Word Soal">
+                                <FileText size={18}/> <span className="hidden md:inline">Unduh Soal</span>
                             </button>
-                            <button onClick={() => handleExportDocx('BLUEPRINT')} className="flex items-center gap-1 px-3 py-2 bg-purple-50 text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-100 text-xs font-bold transition-colors">
-                                <FileType size={14}/> DOCX Kisi
+                            <button onClick={() => handleExportDocx('BLUEPRINT')} className="p-2.5 md:px-4 md:py-2.5 bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200 rounded-xl text-xs font-bold transition-all flex items-center gap-2" title="Download Word Kisi-Kisi">
+                                <Terminal size={18}/> <span className="hidden md:inline">Unduh Kisi</span>
                             </button>
-                            <button onClick={handlePrint} className="flex items-center gap-1 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 text-xs font-bold shadow-md transition-all active:scale-95">
-                                <Printer size={14}/> Print / PDF
+                            <button onClick={handlePrint} className="p-2.5 md:px-6 md:py-2.5 bg-gradient-to-r from-brand-600 to-orange-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-500/30 hover:shadow-brand-500/50 hover:scale-105 transition-all flex items-center gap-2">
+                                <Printer size={18}/> <span className="hidden md:inline">Print PDF</span>
                             </button>
                        </div>
                    </div>
                </div>
+               
+               {/* Mobile Tabs */}
+               <div className="xl:hidden flex justify-center pb-3 gap-2">
+                   <button onClick={() => setActiveTab('QUESTIONS')} className={`px-4 py-1.5 text-xs font-bold rounded-full transition-colors ${activeTab === 'QUESTIONS' ? 'bg-brand-100 text-brand-700' : 'text-slate-500'}`}>Soal</button>
+                   <button onClick={() => setActiveTab('BLUEPRINT')} className={`px-4 py-1.5 text-xs font-bold rounded-full transition-colors ${activeTab === 'BLUEPRINT' ? 'bg-brand-100 text-brand-700' : 'text-slate-500'}`}>Kisi-Kisi</button>
+               </div>
            </div>
 
-           {/* Scrollable Content Area */}
-           <div className="flex-1 overflow-y-auto bg-slate-200 dark:bg-slate-950 p-4 md:p-8 flex justify-center">
-                <div id="print-area" className={`bg-white shadow-xl ${dims} p-[20mm] text-black font-serif text-[11pt] leading-normal transition-all duration-300 mb-20`}>
+           {/* Workspace / Paper Area */}
+           <div className="flex-1 overflow-y-auto custom-scrollbar pt-32 pb-20 px-4 md:px-8 bg-slate-100 dark:bg-slate-950 bg-[url('https://www.transparenttextures.com/patterns/graphy.png')] flex justify-center relative">
+                
+                {/* Paper Container */}
+                <div id="print-area" className={`relative bg-white shadow-2xl ${dims} p-[20mm] text-black font-serif text-[11pt] leading-normal transition-all duration-500 origin-top animate-fade-in-up mb-20`}>
                        
+                       {/* Document Watermark (Optional Visual) */}
+                       <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-slate-100 to-transparent pointer-events-none no-print"></div>
+
                        {/* Header Document */}
-                       <div className="border-b-2 border-black pb-4 mb-6 text-center">
-                           <h1 className="font-bold text-xl uppercase mb-1">Bank Soal {quiz.level} - {quiz.grade}</h1>
-                           <h2 className="font-bold text-lg uppercase mb-2">{quiz.subject}</h2>
-                           <div className="flex justify-between text-sm mt-4 border-t border-black pt-2">
-                               <span>Topik: {quiz.topic}</span>
-                               <span>Waktu: 90 Menit</span>
+                       <div className="border-b-2 border-black pb-4 mb-8 text-center relative">
+                           <div className="absolute top-0 left-0 text-xs font-sans text-slate-400 no-print">Generated by Gen-Z Quiz</div>
+                           <h1 className="font-bold text-2xl uppercase tracking-wide mb-2 mt-4 font-sans">Bank Soal {quiz.level}</h1>
+                           <h2 className="font-bold text-lg uppercase mb-4 text-slate-800">{quiz.subject} - {quiz.grade}</h2>
+                           
+                           <div className="flex justify-between items-center text-sm font-bold border-t-2 border-black pt-3 mt-4">
+                               <div className="flex flex-col items-start gap-1">
+                                   <span>Topik: {quiz.topic}</span>
+                                   <span className="font-normal text-xs text-slate-600">Kode: {quiz.id.slice(-6)}</span>
+                               </div>
+                               <div className="flex flex-col items-end gap-1">
+                                   <span>Waktu: 90 Menit</span>
+                                   <span>Jumlah: {quiz.questions.length} Soal</span>
+                               </div>
                            </div>
                        </div>
 
                        {activeTab === 'QUESTIONS' ? (
-                           <div className="space-y-6">
+                           <div className="space-y-8">
                                {quiz.questions.map((q, idx) => (
-                                   <div key={q.id} className="avoid-break mb-4">
+                                   <div key={q.id} className="avoid-break group relative">
                                        
                                        {/* Wacana / Stimulus Display */}
                                        {q.stimulus && (
-                                           <div className="wacana-box mb-3 border border-slate-800 p-3 bg-slate-50 text-sm">
+                                           <div className="wacana-box mb-4 p-4 bg-slate-50 border-l-4 border-slate-400 text-sm rounded-r-lg italic text-slate-800 relative">
+                                               <span className="absolute -top-3 left-2 bg-slate-200 text-[10px] font-bold px-2 py-0.5 rounded text-slate-600 uppercase no-print">Stimulus</span>
                                                <div className={`${quiz.subject === 'Bahasa Arab' ? 'font-arabic text-right' : ''}`}>
-                                                   <strong className="block mb-1 underline">Wacana / Stimulus:</strong>
                                                    <MathRenderer content={q.stimulus} />
                                                </div>
                                            </div>
                                        )}
 
-                                       <div className="flex gap-2">
-                                           <span className="font-bold">{idx + 1}.</span>
-                                           <div className="flex-1">
-                                                {/* Logic for specific fonts */}
-                                                <div className={`${quiz.subject === 'Bahasa Arab' ? 'font-arabic text-right text-xl' : ''}`}>
+                                       <div className="flex gap-4">
+                                           {/* Question Number */}
+                                           <div className="flex-shrink-0 w-8 h-8 rounded-full border-2 border-black flex items-center justify-center font-bold text-sm bg-white z-10">
+                                               {idx + 1}
+                                           </div>
+
+                                           <div className="flex-1 pt-1">
+                                                {/* Question Text */}
+                                                <div className={`mb-4 text-justify ${quiz.subject === 'Bahasa Arab' ? 'font-arabic text-right text-xl' : ''}`}>
                                                     <MathRenderer content={q.text} />
                                                 </div>
                                                 
+                                                {/* Image */}
                                                 {q.imageUrl && (
-                                                    <div className="my-3 flex justify-center">
-                                                        <img src={q.imageUrl} alt="Visual" className="max-h-[5cm] object-contain border border-gray-300" />
+                                                    <div className="my-4 flex justify-center bg-slate-50 p-2 border border-slate-200 rounded no-print-border">
+                                                        <img src={q.imageUrl} alt="Visual" className="max-h-[6cm] object-contain" />
                                                     </div>
                                                 )}
 
-                                                {/* Compact Options Grid */}
+                                                {/* Options */}
                                                 {(q.type === QuestionType.MULTIPLE_CHOICE || q.type === QuestionType.COMPLEX_MULTIPLE_CHOICE) && (
-                                                    <div className={`mt-2 ${q.options && q.options.some(o => o.length > 50) ? 'flex flex-col gap-2' : 'grid grid-cols-2 gap-x-8 gap-y-2'}`}>
+                                                    <div className={`mt-3 ${q.options && q.options.some(o => o.length > 50) ? 'flex flex-col gap-3' : 'grid grid-cols-2 gap-x-8 gap-y-3'}`}>
                                                         {q.options?.map((opt, i) => (
-                                                            <div key={i} className="flex gap-2">
-                                                                <span className="font-bold">{String.fromCharCode(65+i)}.</span>
-                                                                <MathRenderer content={opt} inline />
+                                                            <div key={i} className="flex gap-3 items-start group/opt">
+                                                                <span className="font-bold text-sm min-w-[20px]">{String.fromCharCode(65+i)}.</span>
+                                                                <div className="text-sm pt-0.5 group-hover/opt:text-slate-900 transition-colors">
+                                                                    <MathRenderer content={opt} inline />
+                                                                </div>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 )}
 
-                                                {/* Answer Key (Inline per question if toggled) */}
+                                                {/* Answer Key (Review Mode) */}
                                                 {showAnswers && (
-                                                    <div className="mt-2 p-2 bg-slate-100 border border-slate-300 text-xs font-sans rounded break-inside-avoid">
-                                                        <strong>Kunci:</strong> {Array.isArray(q.correctAnswer) ? q.correctAnswer.join(', ') : q.correctAnswer} <br/>
-                                                        <strong>Pembahasan:</strong> <MathRenderer content={q.explanation} inline />
+                                                    <div className="mt-4 p-4 bg-green-50 border border-green-200 text-xs font-sans rounded-xl break-inside-avoid no-print shadow-sm flex items-start gap-3">
+                                                        <div className="p-1.5 bg-green-200 text-green-700 rounded-lg">
+                                                            <CheckCircle2 size={16}/>
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-green-800 mb-1">Kunci Jawaban: {Array.isArray(q.correctAnswer) ? q.correctAnswer.join(', ') : q.correctAnswer}</p>
+                                                            <div className="text-slate-600 leading-relaxed">
+                                                                <span className="font-semibold text-slate-800">Pembahasan:</span> <MathRenderer content={q.explanation} inline />
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 )}
                                            </div>
@@ -543,27 +610,35 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
                            </div>
                        ) : (
                            <div>
-                               <h3 className="font-bold text-center mb-4 uppercase">Kisi-Kisi Penulisan Soal</h3>
+                               <div className="flex items-center justify-center gap-2 mb-6">
+                                   <div className="h-px w-12 bg-black"></div>
+                                   <h3 className="font-bold text-center uppercase tracking-widest text-sm">Kisi-Kisi Penulisan Soal</h3>
+                                   <div className="h-px w-12 bg-black"></div>
+                               </div>
+                               
                                <table className="w-full border-collapse border border-black text-sm">
                                    <thead>
-                                       <tr className="bg-gray-100">
-                                           <th className="border border-black p-2 w-12">No</th>
-                                           <th className="border border-black p-2">Kompetensi Dasar / CP</th>
-                                           <th className="border border-black p-2">Indikator Soal</th>
-                                           <th className="border border-black p-2 w-20">Level</th>
-                                           <th className="border border-black p-2 w-20">Kesulitan</th>
-                                           <th className="border border-black p-2 w-24">Bentuk Soal</th>
+                                       <tr className="bg-slate-100">
+                                           <th className="border border-black p-3 w-12 text-center font-bold">No</th>
+                                           <th className="border border-black p-3 text-left font-bold">Kompetensi Dasar / CP</th>
+                                           <th className="border border-black p-3 text-left font-bold">Indikator Soal</th>
+                                           <th className="border border-black p-3 w-24 text-center font-bold">Level</th>
+                                           <th className="border border-black p-3 w-24 text-center font-bold">Kesulitan</th>
+                                           <th className="border border-black p-3 w-24 text-center font-bold">Bentuk</th>
                                        </tr>
                                    </thead>
                                    <tbody>
                                        {quiz.blueprint.map((bp, idx) => (
-                                           <tr key={idx}>
-                                               <td className="border border-black p-2 text-center">{bp.questionNumber}</td>
-                                               <td className="border border-black p-2">{bp.basicCompetency}</td>
-                                               <td className="border border-black p-2">{bp.indicator}</td>
-                                               <td className="border border-black p-2 text-center">{bp.cognitiveLevel}</td>
-                                               <td className="border border-black p-2 text-center">{bp.difficulty}</td>
-                                               <td className="border border-black p-2 text-center">PG</td>
+                                           <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                                               <td className="border border-black p-3 text-center font-bold">{bp.questionNumber}</td>
+                                               <td className="border border-black p-3 align-top">{bp.basicCompetency}</td>
+                                               <td className="border border-black p-3 align-top">{bp.indicator}</td>
+                                               <td className="border border-black p-3 text-center align-middle">
+                                                   <span className="inline-block px-2 py-1 rounded bg-blue-100 text-blue-800 text-xs font-bold no-print-bg">{bp.cognitiveLevel}</span>
+                                                   <span className="hidden print:inline">{bp.cognitiveLevel}</span>
+                                               </td>
+                                               <td className="border border-black p-3 text-center align-middle">{bp.difficulty}</td>
+                                               <td className="border border-black p-3 text-center align-middle">PG</td>
                                            </tr>
                                        ))}
                                    </tbody>
