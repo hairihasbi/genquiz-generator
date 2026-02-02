@@ -224,7 +224,7 @@ const GlobalAndPrintStyles = () => (
             }
             
             /* Hide Background patterns */
-            .bg-\[url\(\'https\:\/\/www\.transparenttextures\.com\/patterns\/graphy\.png\'\)\] {
+            .bg-\[url\(\'https\:\/\/www\.transparenttextures\.com\/patterns\/graphy\.png\.png\'\)\] {
                 background-image: none !important;
             }
         }
@@ -387,6 +387,15 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
        window.print();
    };
 
+   // New function to print questions WITH answers
+   const handlePrintKeys = () => {
+       setActiveTab('QUESTIONS');
+       setShowAnswers(true);
+       setTimeout(() => {
+           window.print();
+       }, 500); // Allow render time for answer blocks
+   };
+
    // Separate Export Functions
    const handleExportDocx = (type: 'QUESTIONS' | 'BLUEPRINT') => {
        if (activeTab !== type) {
@@ -510,6 +519,9 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
                             </button>
                             <button onClick={() => handleExportDocx('BLUEPRINT')} className="p-2 md:px-3 md:py-2 bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200 rounded-lg text-xs font-bold transition-all flex items-center gap-2" title="Download Word Kisi-Kisi">
                                 <Terminal size={16}/> <span className="hidden lg:inline">Kisi</span>
+                            </button>
+                            <button onClick={handlePrintKeys} className="p-2 md:px-3 md:py-2 bg-green-50 text-green-600 hover:bg-green-100 border border-green-200 rounded-lg text-xs font-bold transition-all flex items-center gap-2" title="Download PDF Soal + Kunci">
+                                <Printer size={16}/> <span className="hidden lg:inline">+Kunci</span>
                             </button>
                             <button onClick={handlePrint} className="p-2 md:px-4 md:py-2 bg-gradient-to-r from-brand-600 to-orange-500 text-white rounded-lg text-xs font-bold shadow-lg shadow-brand-500/30 hover:shadow-brand-500/50 hover:scale-105 transition-all flex items-center gap-2">
                                 <Printer size={16}/> <span className="hidden lg:inline">PDF</span>
