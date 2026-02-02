@@ -89,26 +89,23 @@ import Homepage from './components/Homepage';
 const GlobalAndPrintStyles = () => (
     <style>{`
         /* --- GLOBAL MATHJAX FIXES --- */
-        /* Ensure inline math doesn't break lines */
         mjx-container {
             display: inline-block !important;
             margin: 0 2px !important;
             vertical-align: middle !important;
         }
         
-        /* Specific fix for SVG rendering */
         mjx-container > svg {
             display: inline-block !important;
             vertical-align: middle !important;
             margin: 0 !important;
         }
 
-        /* Prevent math from being too small or too large */
         .mjx-chtml {
             font-size: 100% !important;
         }
 
-        /* Scrollbar styling for the preview window */
+        /* Scrollbar styling */
         .custom-scrollbar::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -124,9 +121,11 @@ const GlobalAndPrintStyles = () => (
             background: #94a3b8;
         }
 
+        /* --- PRINT STYLES --- */
         @media print {
             @page {
-                margin: 0;
+                /* Set clear margins for the physical paper */
+                margin: 20mm 20mm 20mm 20mm; 
                 size: auto; 
             }
             
@@ -135,7 +134,8 @@ const GlobalAndPrintStyles = () => (
                 background: white !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                overflow: visible !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
 
             /* Reset Constraints */
@@ -156,13 +156,11 @@ const GlobalAndPrintStyles = () => (
                 width: 100% !important;
                 max-width: 100% !important;
                 margin: 0 auto !important;
-                padding: 2cm !important; /* Default padding for print */
+                padding: 0 !important; /* Let @page handle margins to avoid double spacing */
                 background: white !important;
                 box-shadow: none !important;
                 border: none !important;
                 z-index: 99999 !important;
-                height: auto !important;
-                overflow: visible !important;
             }
 
             #print-area * {
@@ -180,28 +178,29 @@ const GlobalAndPrintStyles = () => (
                 color: black !important;
             }
 
-            /* Page Breaks */
+            /* CRITICAL: Page Break Logic */
             .avoid-break {
-                break-inside: avoid;
-                page-break-inside: avoid;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                display: block !important; /* Flex containers often ignore break rules */
+                margin-bottom: 2em !important; /* Ensure spacing between questions */
             }
-            .page-break {
-                break-after: always;
-                page-break-after: always;
-            }
-            h1, h2, h3, h4 {
+            
+            h1, h2, h3, h4, .wacana-box {
                 break-after: avoid;
                 page-break-after: avoid;
             }
+            
             img {
                 max-width: 100% !important;
                 break-inside: avoid;
             }
+            
             table, tr, td, th {
                 page-break-inside: avoid;
             }
             
-            /* Grid Fixes */
+            /* Grid Fixes for Print */
             .grid { display: block !important; }
             .grid-cols-2 > div {
                 display: inline-block !important;
@@ -215,13 +214,18 @@ const GlobalAndPrintStyles = () => (
             .no-print {
                 display: none !important;
             }
+            
+            /* Hide Background patterns */
+            .bg-\[url\(\'https\:\/\/www\.transparenttextures\.com\/patterns\/graphy\.png\'\)\] {
+                background-image: none !important;
+            }
         }
     `}</style>
 );
 
 // --- COMPONENTS ---
 
-// 1. Sidebar (Existing code...)
+// 1. Sidebar
 const Sidebar = ({ user, isOpen, setIsOpen, onLogout }: any) => {
   const location = useLocation();
   const menuItems = [
@@ -260,7 +264,7 @@ const Sidebar = ({ user, isOpen, setIsOpen, onLogout }: any) => {
   );
 };
 
-// 2. Dashboard (Existing code...)
+// 2. Dashboard
 const Dashboard = ({ user }: { user: User }) => {
   const [stats, setStats] = useState({ quizCount: 0, generated: 0 });
   const [settings, setSettings] = useState<SystemSettings | null>(null);
@@ -305,7 +309,7 @@ const Dashboard = ({ user }: { user: User }) => {
   );
 };
 
-// 3. User Management (Existing code...)
+// 3. User Management
 const UserManagement = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -357,7 +361,7 @@ const UserManagement = () => {
     );
 };
 
-// 5. Quiz Result View (Redesigned)
+// 4. Quiz Result View (Redesigned & Fixed)
 const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) => {
    const [paperSize, setPaperSize] = useState<'A4' | 'Folio'>('A4');
    const [showAnswers, setShowAnswers] = useState(false);
@@ -428,89 +432,93 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
        <div id="quiz-result-view" className="fixed inset-0 z-[60] bg-slate-100 dark:bg-slate-950 flex flex-col overflow-hidden font-sans">
            
            {/* Modern Glassmorphism Header (No Print) */}
-           <div className="no-print fixed top-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-               <div className="max-w-[1920px] mx-auto px-6 h-20 flex justify-between items-center">
+           <div className="no-print fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+               <div className="max-w-[1920px] mx-auto px-4 lg:px-6 h-20 flex justify-between items-center gap-4">
                    
                    {/* Left: Branding & Title */}
-                   <div className="flex items-center gap-5">
+                   <div className="flex items-center gap-4 flex-1 min-w-0">
                        <button 
                            onClick={onClose} 
-                           className="group flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 transition-all active:scale-95"
+                           className="flex-shrink-0 group flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 transition-all active:scale-95 border border-slate-200 dark:border-slate-700"
                            title="Kembali"
                        >
-                           <ChevronLeft size={24} className="group-hover:-translate-x-0.5 transition-transform"/>
+                           <ChevronLeft size={22} className="group-hover:-translate-x-0.5 transition-transform"/>
                        </button>
-                       <div className="flex flex-col">
-                            <h3 className="font-extrabold text-xl text-slate-800 dark:text-white truncate max-w-md tracking-tight leading-tight">
+                       <div className="flex flex-col min-w-0">
+                            <h3 className="font-extrabold text-lg md:text-xl text-slate-800 dark:text-white truncate tracking-tight leading-tight">
                                 {quiz.title}
                             </h3>
                             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mt-0.5">
-                                <span className="bg-brand-100 text-brand-700 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider">{quiz.subject}</span>
-                                <span>•</span>
-                                <span>{quiz.questions.length} Butir Soal</span>
+                                <span className="bg-brand-100 text-brand-700 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider whitespace-nowrap">{quiz.subject}</span>
+                                <span className="hidden sm:inline">•</span>
+                                <span className="hidden sm:inline">{quiz.questions.length} Butir Soal</span>
                             </div>
                        </div>
                    </div>
 
-                   {/* Center: View Controls */}
-                   <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden xl:flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner">
-                       <button onClick={() => setActiveTab('QUESTIONS')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'QUESTIONS' ? 'bg-white dark:bg-slate-700 text-brand-600 shadow-sm scale-105' : 'text-slate-500 hover:text-slate-700'}`}>
-                           <FileText size={16}/> Soal Preview
+                   {/* Center: View Controls - Refactored to avoid overlap */}
+                   <div className="hidden xl:flex items-center bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner flex-shrink-0 mx-4">
+                       <button onClick={() => setActiveTab('QUESTIONS')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'QUESTIONS' ? 'bg-white dark:bg-slate-700 text-brand-600 shadow-md ring-1 ring-black/5 scale-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}>
+                           <FileText size={16}/> Soal
                        </button>
-                       <button onClick={() => setActiveTab('BLUEPRINT')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'BLUEPRINT' ? 'bg-white dark:bg-slate-700 text-brand-600 shadow-sm scale-105' : 'text-slate-500 hover:text-slate-700'}`}>
+                       <button onClick={() => setActiveTab('BLUEPRINT')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'BLUEPRINT' ? 'bg-white dark:bg-slate-700 text-brand-600 shadow-md ring-1 ring-black/5 scale-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}>
                            <Terminal size={16}/> Kisi-Kisi
                        </button>
                    </div>
 
                    {/* Right: Actions */}
-                   <div className="flex items-center gap-3">
+                   <div className="flex items-center justify-end gap-2 flex-shrink-0">
                        
                        {/* Settings Group */}
-                       <div className="hidden md:flex items-center gap-2 mr-2">
+                       <div className="hidden lg:flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
                            <div className="relative group">
                                <select 
                                    value={paperSize} 
                                    onChange={(e) => setPaperSize(e.target.value as any)} 
-                                   className="appearance-none bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs pl-4 pr-8 py-2.5 rounded-xl border-transparent focus:border-brand-500 focus:ring-0 cursor-pointer hover:bg-slate-200 transition-colors"
+                                   className="appearance-none bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs pl-3 pr-8 py-2 rounded-lg border border-slate-200 dark:border-slate-700 focus:border-brand-500 focus:ring-0 cursor-pointer hover:bg-slate-50 transition-colors shadow-sm"
                                >
-                                   <option value="A4">Kertas: A4</option>
-                                   <option value="Folio">Kertas: Folio</option>
+                                   <option value="A4">A4</option>
+                                   <option value="Folio">F4</option>
                                </select>
-                               <ChevronDown size={14} className="absolute right-3 top-3 text-slate-400 pointer-events-none"/>
+                               <ChevronDown size={14} className="absolute right-2 top-2.5 text-slate-400 pointer-events-none"/>
                            </div>
                            
                            {activeTab === 'QUESTIONS' && (
                                <button 
                                   onClick={() => setShowAnswers(!showAnswers)} 
-                                  className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm ${showAnswers ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                                  className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 shadow-sm border ${showAnswers ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                                  title="Tampilkan/Sembunyikan Kunci Jawaban"
                                >
-                                   {showAnswers ? <Eye size={16}/> : <EyeOff size={16}/>}
-                                   <span className="hidden lg:inline">{showAnswers ? 'Sembunyikan Kunci' : 'Lihat Kunci'}</span>
+                                   {showAnswers ? <Eye size={14}/> : <EyeOff size={14}/>}
+                                   <span className="hidden xl:inline">{showAnswers ? 'Kunci' : 'Kunci'}</span>
                                </button>
                            )}
                        </div>
 
-                       <div className="h-8 w-px bg-slate-300 dark:bg-slate-700 mx-2 hidden md:block"></div>
+                       <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden lg:block"></div>
 
                        {/* Export Group */}
                        <div className="flex items-center gap-2">
-                            <button onClick={() => handleExportDocx('QUESTIONS')} className="p-2.5 md:px-4 md:py-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs font-bold transition-all flex items-center gap-2" title="Download Word Soal">
-                                <FileText size={18}/> <span className="hidden md:inline">Unduh Soal</span>
+                            <button onClick={() => handleExportDocx('QUESTIONS')} className="p-2 md:px-3 md:py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-bold transition-all flex items-center gap-2" title="Download Word Soal">
+                                <FileText size={16}/> <span className="hidden lg:inline">Word</span>
                             </button>
-                            <button onClick={() => handleExportDocx('BLUEPRINT')} className="p-2.5 md:px-4 md:py-2.5 bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200 rounded-xl text-xs font-bold transition-all flex items-center gap-2" title="Download Word Kisi-Kisi">
-                                <Terminal size={18}/> <span className="hidden md:inline">Unduh Kisi</span>
+                            <button onClick={() => handleExportDocx('BLUEPRINT')} className="p-2 md:px-3 md:py-2 bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200 rounded-lg text-xs font-bold transition-all flex items-center gap-2" title="Download Word Kisi-Kisi">
+                                <Terminal size={16}/> <span className="hidden lg:inline">Kisi</span>
                             </button>
-                            <button onClick={handlePrint} className="p-2.5 md:px-6 md:py-2.5 bg-gradient-to-r from-brand-600 to-orange-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-500/30 hover:shadow-brand-500/50 hover:scale-105 transition-all flex items-center gap-2">
-                                <Printer size={18}/> <span className="hidden md:inline">Print PDF</span>
+                            <button onClick={handlePrint} className="p-2 md:px-4 md:py-2 bg-gradient-to-r from-brand-600 to-orange-500 text-white rounded-lg text-xs font-bold shadow-lg shadow-brand-500/30 hover:shadow-brand-500/50 hover:scale-105 transition-all flex items-center gap-2">
+                                <Printer size={16}/> <span className="hidden lg:inline">PDF</span>
                             </button>
                        </div>
                    </div>
                </div>
                
                {/* Mobile Tabs */}
-               <div className="xl:hidden flex justify-center pb-3 gap-2">
-                   <button onClick={() => setActiveTab('QUESTIONS')} className={`px-4 py-1.5 text-xs font-bold rounded-full transition-colors ${activeTab === 'QUESTIONS' ? 'bg-brand-100 text-brand-700' : 'text-slate-500'}`}>Soal</button>
-                   <button onClick={() => setActiveTab('BLUEPRINT')} className={`px-4 py-1.5 text-xs font-bold rounded-full transition-colors ${activeTab === 'BLUEPRINT' ? 'bg-brand-100 text-brand-700' : 'text-slate-500'}`}>Kisi-Kisi</button>
+               <div className="xl:hidden flex justify-center pb-3 gap-2 border-t border-slate-100 dark:border-slate-800 pt-2 bg-white/50 dark:bg-slate-900/50">
+                   <button onClick={() => setActiveTab('QUESTIONS')} className={`px-6 py-1.5 text-xs font-bold rounded-full transition-all border ${activeTab === 'QUESTIONS' ? 'bg-brand-500 text-white border-brand-500 shadow-md' : 'bg-white text-slate-500 border-slate-200'}`}>Soal</button>
+                   <button onClick={() => setActiveTab('BLUEPRINT')} className={`px-6 py-1.5 text-xs font-bold rounded-full transition-all border ${activeTab === 'BLUEPRINT' ? 'bg-brand-500 text-white border-brand-500 shadow-md' : 'bg-white text-slate-500 border-slate-200'}`}>Kisi-Kisi</button>
+                   <button onClick={() => setShowAnswers(!showAnswers)} className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all border ${showAnswers ? 'bg-green-500 text-white border-green-500' : 'bg-white text-slate-500 border-slate-200'}`}>
+                       {showAnswers ? <Eye size={14}/> : <EyeOff size={14}/>}
+                   </button>
                </div>
            </div>
 
@@ -651,7 +659,7 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
    );
 };
 
-// 6. History Archive Component (Modified to use new QuizResultView)
+// 5. History Archive
 const HistoryArchive = ({ user }: { user: User }) => {
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [loading, setLoading] = useState(true);
@@ -767,7 +775,7 @@ const HistoryArchive = ({ user }: { user: User }) => {
     );
 };
 
-// 7. Create Quiz Form (Modified to use new QuizResultView)
+// 6. Create Quiz Form
 const SUBJECTS = {
   "Wajib Umum": ["Pendidikan Agama Islam dan Budi Pekerti", "Pendidikan Pancasila", "Bahasa Indonesia", "Matematika", "Sejarah", "Bahasa Inggris", "Seni Budaya", "PJOK", "PKWU"],
   "Peminatan MIPA": ["Biologi", "Fisika", "Kimia", "Matematika Peminatan"],
@@ -778,7 +786,7 @@ const SUBJECTS = {
 };
 
 const CreateQuiz = ({ user, onUpdateCredits }: { user: User; onUpdateCredits: (credits: number) => void }) => {
-    const navigate = useNavigate(); // Moved to top
+    const navigate = useNavigate(); 
     const [loading, setLoading] = useState(false);
     const [progress, setProgress] = useState(0);
     const [loadingStep, setLoadingStep] = useState('');
@@ -1292,7 +1300,7 @@ const CreateQuiz = ({ user, onUpdateCredits }: { user: User; onUpdateCredits: (c
     );
 };
 
-// 8. Database Configuration (Existing code...)
+// 7. Database Configuration
 const CloudDatabase = () => {
     const [url, setUrl] = useState('');
     const [token, setToken] = useState('');
@@ -1455,7 +1463,174 @@ const CloudDatabase = () => {
     );
 };
 
-// 9. Login Component (Existing code...)
+// 8.1 System Logs
+const SystemLogs = ({ user }: { user: User }) => {
+    const [logs, setLogs] = useState<LogEntry[]>([]);
+    
+    const loadLogs = async () => {
+        const data = await dbService.getLogs();
+        setLogs(data);
+    };
+
+    useEffect(() => {
+        loadLogs();
+    }, []);
+
+    const handleClear = async () => {
+        if(confirm("Bersihkan semua log?")) {
+            await dbService.clearLogs();
+            loadLogs();
+        }
+    }
+
+    return (
+        <div className="space-y-6 max-w-7xl mx-auto">
+             <div className="flex justify-between items-center mb-6">
+               <div>
+                   <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                       <Activity className="text-brand-600"/> Log Sistem
+                   </h2>
+                   <p className="text-slate-500 text-sm">Aktivitas sistem dan pengguna.</p>
+               </div>
+               <button onClick={handleClear} className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl font-bold flex items-center gap-2 text-sm transition-colors">
+                   <Trash2 size={16}/> Bersihkan Log
+               </button>
+             </div>
+             
+             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+                 <div className="overflow-x-auto">
+                     <table className="w-full text-sm text-left">
+                         <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 font-bold uppercase text-xs">
+                             <tr>
+                                 <th className="px-6 py-4">Timestamp</th>
+                                 <th className="px-6 py-4">Level</th>
+                                 <th className="px-6 py-4">User</th>
+                                 <th className="px-6 py-4">Action</th>
+                                 <th className="px-6 py-4">Details</th>
+                             </tr>
+                         </thead>
+                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                             {logs.map(log => (
+                                 <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                     <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
+                                         {new Date(log.timestamp).toLocaleString()}
+                                     </td>
+                                     <td className="px-6 py-4">
+                                         <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                                             log.type === LogType.ERROR ? 'bg-red-100 text-red-600' :
+                                             log.type === LogType.SUCCESS ? 'bg-green-100 text-green-600' :
+                                             log.type === LogType.WARNING ? 'bg-orange-100 text-orange-600' :
+                                             'bg-blue-100 text-blue-600'
+                                         }`}>
+                                             {log.type}
+                                         </span>
+                                     </td>
+                                     <td className="px-6 py-4 font-medium text-slate-800 dark:text-white">{log.userId}</td>
+                                     <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300">{log.action}</td>
+                                     <td className="px-6 py-4 text-slate-600 dark:text-slate-400 max-w-md truncate" title={log.details}>
+                                         {log.details}
+                                     </td>
+                                 </tr>
+                             ))}
+                             {logs.length === 0 && (
+                                 <tr>
+                                     <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                                         Belum ada log aktivitas.
+                                     </td>
+                                 </tr>
+                             )}
+                         </tbody>
+                     </table>
+                 </div>
+             </div>
+        </div>
+    );
+};
+
+// 8.2 Settings Page
+const SettingsPage = () => {
+    const [settings, setSettings] = useState<SystemSettings>({
+        ai: { factCheck: true },
+        cron: { enabled: true }
+    });
+
+    useEffect(() => {
+        dbService.getSettings().then(setSettings);
+    }, []);
+
+    const handleSave = async () => {
+        await dbService.saveSettings(settings);
+        alert("Pengaturan disimpan!");
+    };
+
+    return (
+        <div className="max-w-4xl mx-auto space-y-6">
+             <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+                    <Settings size={22} />
+                </div>
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Pengaturan Sistem</h2>
+                    <p className="text-slate-500 text-sm">Konfigurasi global aplikasi.</p>
+                </div>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 space-y-8">
+                
+                {/* AI Settings */}
+                <section className="space-y-4">
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-white border-b border-slate-100 pb-2">AI & Generasi Soal</h3>
+                    
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-medium text-slate-700 dark:text-slate-300">Fact Checking Otomatis</p>
+                            <p className="text-xs text-slate-500">Menambahkan instruksi verifikasi fakta pada prompt AI. Mungkin sedikit memperlambat generasi.</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                className="sr-only peer"
+                                checked={settings.ai.factCheck}
+                                onChange={(e) => setSettings({...settings, ai: {...settings.ai, factCheck: e.target.checked}})} 
+                            />
+                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+                        </label>
+                    </div>
+                </section>
+
+                {/* System Settings */}
+                <section className="space-y-4">
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-white border-b border-slate-100 pb-2">Background Tasks</h3>
+                    
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-medium text-slate-700 dark:text-slate-300">Cron Jobs (Background Workers)</p>
+                            <p className="text-xs text-slate-500">Mengaktifkan tugas latar belakang (pembersihan cache, cek update, dll).</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                className="sr-only peer"
+                                checked={settings.cron.enabled}
+                                onChange={(e) => setSettings({...settings, cron: {...settings.cron, enabled: e.target.checked}})} 
+                            />
+                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+                        </label>
+                    </div>
+                </section>
+
+                <div className="pt-4">
+                    <button onClick={handleSave} className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl hover:bg-brand-700 transition-colors shadow-lg shadow-brand-500/20 flex items-center gap-2">
+                        <Save size={18} /> Simpan Perubahan
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    );
+};
+
+// 9. Login Component
 const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -1501,53 +1676,6 @@ const Login = ({ onLogin }: { onLogin: (u: User) => void }) => {
       </div>
     </div>
   );
-};
-
-// 10. System Logs Component (Existing code...)
-const SystemLogs = ({ user }: { user: User }) => {
-    const [logs, setLogs] = useState<LogEntry[]>([]);
-    useEffect(() => {
-        const fetchLogs = async () => { const data = await dbService.getLogs(); setLogs(data); }; fetchLogs();
-        const interval = setInterval(fetchLogs, 5000); return () => clearInterval(interval);
-    }, []);
-    const handleClear = async () => { if(confirm("Bersihkan semua log?")) { await dbService.clearLogs(); setLogs([]); } };
-    return (
-        <div className="space-y-6 max-w-6xl mx-auto">
-             <div className="flex justify-between items-center mb-6"><div><h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><Activity className="text-brand-600"/> System Logs</h2><p className="text-slate-500 text-sm">Monitor aktivitas sistem dan error log.</p></div><button onClick={handleClear} className="px-4 py-2 bg-white text-red-500 border border-red-200 hover:bg-red-50 rounded-xl font-bold flex items-center gap-2 transition-colors"><Trash2 size={18}/> Clear Logs</button></div>
-             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-                 <div className="overflow-x-auto">
-                     <table className="w-full text-sm text-left"><thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 border-b border-slate-100 dark:border-slate-700"><tr><th className="px-6 py-4 font-bold">Timestamp</th><th className="px-6 py-4 font-bold">Level</th><th className="px-6 py-4 font-bold">Action</th><th className="px-6 py-4 font-bold">User</th><th className="px-6 py-4 font-bold">Details</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-700">{logs.length === 0 ? (<tr><td colSpan={5} className="p-8 text-center text-slate-400">No logs found.</td></tr>) : (logs.map(log => (<tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"><td className="px-6 py-4 text-slate-500 font-mono text-xs whitespace-nowrap">{new Date(log.timestamp).toLocaleString()}</td><td className="px-6 py-4"><span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${log.type === LogType.ERROR ? 'bg-red-100 text-red-600' : log.type === LogType.SUCCESS ? 'bg-green-100 text-green-600' : log.type === LogType.WARNING ? 'bg-orange-100 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>{log.type}</span></td><td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300">{log.action}</td><td className="px-6 py-4 text-slate-500">{log.userId}</td><td className="px-6 py-4 text-slate-600 dark:text-slate-400 max-w-xs truncate" title={log.details}>{log.details}</td></tr>)))}</tbody></table>
-                 </div>
-             </div>
-        </div>
-    );
-};
-
-// 11. Settings Page Component (Existing code...)
-const SettingsPage = () => {
-    const [settings, setSettings] = useState<SystemSettings>({ ai: { factCheck: true }, cron: { enabled: true } });
-    const [saved, setSaved] = useState(false);
-    const [apiCheckStatus, setApiCheckStatus] = useState<{ status: 'IDLE' | 'LOADING' | 'SUCCESS' | 'ERROR', message: string, latency: number, keyCount: number }>({ status: 'IDLE', message: '', latency: 0, keyCount: 0 });
-    useEffect(() => { dbService.getSettings().then(setSettings); }, []);
-    const handleSave = async () => { await dbService.saveSettings(settings); setSaved(true); setTimeout(() => setSaved(false), 3000); };
-    const handleCheckApi = async () => {
-        setApiCheckStatus(prev => ({ ...prev, status: 'LOADING', message: 'Connecting to Gemini...' }));
-        try { const result = await validateGeminiConnection(); setApiCheckStatus({ status: result.success ? 'SUCCESS' : 'ERROR', message: result.message, latency: result.latency, keyCount: result.keyCount }); } catch (e) { setApiCheckStatus({ status: 'ERROR', message: 'Internal System Error', latency: 0, keyCount: 0 }); }
-    };
-    return (
-        <div className="max-w-4xl mx-auto space-y-6">
-             <div className="flex items-center gap-3 mb-6"><div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-600 flex items-center justify-center"><Settings size={22} /></div><div><h2 className="text-2xl font-bold text-slate-800 dark:text-white">System Settings</h2><p className="text-slate-500 text-sm">Konfigurasi global aplikasi.</p></div></div>
-            <div className="space-y-6">
-                <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700">
-                    <div className="flex items-center gap-3 mb-6"><div className="p-2 bg-brand-100 text-brand-600 rounded-lg"><BrainCircuit size={20} /></div><div><h3 className="font-bold text-lg text-slate-800 dark:text-white">Gemini API Status</h3><p className="text-sm text-slate-500">Periksa kesehatan koneksi ke Google AI Studio.</p></div></div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"><div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"><span className="text-xs text-slate-500 uppercase font-bold flex items-center gap-2"><Server size={14}/> Connection</span><div className="mt-2 flex items-center gap-2">{apiCheckStatus.status === 'LOADING' ? (<span className="text-slate-400 font-bold animate-pulse">Checking...</span>) : apiCheckStatus.status === 'SUCCESS' ? (<span className="text-green-600 font-bold flex items-center gap-1"><CheckCircle2 size={18}/> Active</span>) : apiCheckStatus.status === 'ERROR' ? (<span className="text-red-500 font-bold flex items-center gap-1"><AlertTriangle size={18}/> Error</span>) : (<span className="text-slate-400 font-bold">Unknown</span>)}</div></div><div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"><span className="text-xs text-slate-500 uppercase font-bold flex items-center gap-2"><Key size={14}/> Keys Loaded</span><div className="mt-2 text-xl font-mono font-bold text-slate-800 dark:text-white">{apiCheckStatus.status !== 'IDLE' ? apiCheckStatus.keyCount : '-'}</div></div><div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700"><span className="text-xs text-slate-500 uppercase font-bold flex items-center gap-2"><Zap size={14}/> Latency</span><div className="mt-2 text-xl font-mono font-bold text-slate-800 dark:text-white">{apiCheckStatus.status === 'SUCCESS' ? `${apiCheckStatus.latency}ms` : '-'}</div></div></div>
-                    {apiCheckStatus.status === 'ERROR' && (<div className="mb-6 p-4 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100 flex items-start gap-2"><AlertCircle size={16} className="mt-0.5 shrink-0"/><div><strong className="block mb-1">Connection Failed</strong>{apiCheckStatus.message}</div></div>)}
-                    <button onClick={handleCheckApi} disabled={apiCheckStatus.status === 'LOADING'} className="px-6 py-2 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-900 transition-colors flex items-center gap-2 disabled:opacity-50">{apiCheckStatus.status === 'LOADING' ? <RefreshCw className="animate-spin" size={16}/> : <RefreshCw size={16}/>}Test Connection</button>
-                </div>
-                <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 space-y-8"><div className="flex items-center justify-between pb-6 border-b border-slate-100 dark:border-slate-700"><div><h4 className="font-bold text-lg text-slate-800 dark:text-white mb-1">AI Fact Checking</h4><p className="text-sm text-slate-500">Memaksa AI untuk melakukan validasi fakta tambahan (sedikit lebih lambat).</p></div><label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" className="sr-only peer" checked={settings.ai.factCheck} onChange={(e) => setSettings({...settings, ai: {...settings.ai, factCheck: e.target.checked}})}/><div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div></label></div><div className="flex items-center justify-between pb-6 border-b border-slate-100 dark:border-slate-700"><div><h4 className="font-bold text-lg text-slate-800 dark:text-white mb-1">Background Tasks (Cron)</h4><p className="text-sm text-slate-500">Aktifkan background worker untuk maintenance otomatis.</p></div><label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" className="sr-only peer" checked={settings.cron.enabled} onChange={(e) => setSettings({...settings, cron: {...settings.cron, enabled: e.target.checked}})}/><div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div></label></div><div className="pt-4"><button onClick={handleSave} className="px-8 py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-900 transition-all flex items-center gap-2">{saved ? <CheckCircle2 size={18}/> : <Save size={18}/>}{saved ? 'Saved!' : 'Save Changes'}</button></div></div>
-            </div>
-        </div>
-    );
 };
 
 // --- CRON WORKER HOOK ---
