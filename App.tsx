@@ -139,15 +139,14 @@ const GlobalAndPrintStyles = () => (
                 print-color-adjust: exact;
             }
 
-            /* Reset Constraints */
-            html, body, #root, #quiz-result-view, .transform, .fixed, .absolute, .relative, .overflow-hidden, .overflow-auto, .flex, .h-full, .w-full {
+            /* Reset Constraints but allow Grid/Flex */
+            html, body, #root, #quiz-result-view, .transform, .fixed, .absolute, .relative, .overflow-hidden, .overflow-auto, .h-full, .w-full {
                 position: static !important;
                 transform: none !important;
                 transition: none !important;
                 overflow: visible !important;
                 height: auto !important;
                 width: auto !important;
-                display: block !important;
             }
 
             /* Target Print Area */
@@ -157,7 +156,7 @@ const GlobalAndPrintStyles = () => (
                 width: 100% !important;
                 max-width: 100% !important;
                 margin: 0 auto !important;
-                padding: 0 !important; /* Let @page handle margins to avoid double spacing */
+                padding: 0 !important; 
                 background: white !important;
                 box-shadow: none !important;
                 border: none !important;
@@ -172,7 +171,7 @@ const GlobalAndPrintStyles = () => (
             #print-area {
                 color: black !important;
                 font-family: 'Times New Roman', serif !important;
-                font-size: 11pt !important;
+                font-size: 12pt !important;
                 line-height: 1.5 !important;
             }
             .text-slate-500, .text-slate-400, .text-slate-600, .text-slate-800 {
@@ -183,8 +182,8 @@ const GlobalAndPrintStyles = () => (
             .avoid-break {
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
-                display: block !important; /* Flex containers often ignore break rules */
-                margin-bottom: 2em !important; /* Ensure spacing between questions */
+                display: block !important; 
+                margin-bottom: 2em !important; 
             }
             
             h1, h2, h3, h4, .wacana-box {
@@ -201,14 +200,19 @@ const GlobalAndPrintStyles = () => (
                 page-break-inside: avoid;
             }
             
-            /* Grid Fixes for Print */
-            .grid { display: block !important; }
-            .grid-cols-2 > div {
-                display: inline-block !important;
-                width: 48% !important;
-                vertical-align: top !important;
-                margin-right: 1% !important;
-                margin-bottom: 0.5rem !important;
+            /* CRITICAL FIX: Enforce Grid in Print for Options */
+            /* This ensures A/B and C/D are aligned perfectly */
+            .print-grid { 
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                column-gap: 2rem !important;
+                row-gap: 0.5rem !important;
+            }
+            
+            /* Ensure Flex works for question number alignment */
+            .print-flex {
+                display: flex !important;
+                align-items: flex-start !important;
             }
 
             /* Hide UI Controls */
@@ -399,9 +403,7 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
            .font-tc { font-family: 'Microsoft JhengHei', 'SimSun', 'Noto Sans TC', sans-serif; }
            mjx-container { outline: none !important; border: 0 !important; display: inline-block !important; }
            svg { vertical-align: middle !important; max-width: 100%; height: auto; }
-           .grid { display: block; width: 100%; margin-top: 10px; }
-           .grid-cols-2 { display: block; width: 100%; }
-           .grid-cols-2 > div { display: inline-block; width: 48%; vertical-align: top; margin-bottom: 5px; box-sizing: border-box; }
+           .grid { display: grid !important; grid-template-columns: repeat(2, 1fr); }
            .wacana-box { border: 1px solid #000; padding: 10px; margin-bottom: 10px; background-color: #f9f9f9; font-style: italic; }
            .text-right { text-align: right; }
            .font-bold { font-weight: bold; }
@@ -457,7 +459,7 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
                        </div>
                    </div>
 
-                   {/* Center: View Controls - Refactored to avoid overlap */}
+                   {/* Center: View Controls */}
                    <div className="hidden xl:flex items-center bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner flex-shrink-0 mx-4">
                        <button onClick={() => setActiveTab('QUESTIONS')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'QUESTIONS' ? 'bg-white dark:bg-slate-700 text-brand-600 shadow-md ring-1 ring-black/5 scale-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}>
                            <FileText size={16}/> Soal
@@ -565,13 +567,14 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
                                            </div>
                                        )}
 
-                                       <div className="flex gap-4">
+                                       {/* Question Container - Flex for proper alignment of Number vs Text */}
+                                       <div className="flex gap-4 print-flex items-start">
                                            {/* Question Number */}
-                                           <div className="flex-shrink-0 w-8 h-8 rounded-full border-2 border-black flex items-center justify-center font-bold text-sm bg-white z-10">
-                                               {idx + 1}
+                                           <div className="flex-shrink-0 w-8 font-bold text-lg text-right leading-tight pt-0.5">
+                                               {idx + 1}.
                                            </div>
 
-                                           <div className="flex-1 pt-1">
+                                           <div className="flex-1 min-w-0">
                                                 {/* Question Text */}
                                                 <div className={`mb-4 text-justify ${quiz.subject === 'Bahasa Arab' ? 'font-arabic text-right text-xl' : ''}`}>
                                                     <MathRenderer content={q.text} />
@@ -586,10 +589,11 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
 
                                                 {/* Options */}
                                                 {(q.type === QuestionType.MULTIPLE_CHOICE || q.type === QuestionType.COMPLEX_MULTIPLE_CHOICE) && (
-                                                    <div className={`mt-3 ${q.options && q.options.some(o => o.length > 50) ? 'flex flex-col gap-3' : 'grid grid-cols-2 gap-x-8 gap-y-3'}`}>
+                                                    // Explicit Grid for Print to aligned options like A.. B.. / C.. D..
+                                                    <div className={`mt-3 ${q.options && q.options.some(o => o.length > 60) ? 'flex flex-col gap-3' : 'grid grid-cols-2 gap-x-12 gap-y-2 print-grid'}`}>
                                                         {q.options?.map((opt, i) => (
                                                             <div key={i} className="flex gap-3 items-start group/opt">
-                                                                <span className="font-bold text-sm min-w-[20px]">{String.fromCharCode(65+i)}.</span>
+                                                                <span className="font-bold text-sm min-w-[24px] uppercase">{String.fromCharCode(65+i)}.</span>
                                                                 <div className="text-sm pt-0.5 group-hover/opt:text-slate-900 transition-colors">
                                                                     <MathRenderer content={opt} inline />
                                                                 </div>
