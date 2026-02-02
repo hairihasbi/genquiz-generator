@@ -55,8 +55,13 @@ export const validateGeminiConnection = async (): Promise<{success: boolean, mes
 const getSubjectInstruction = (subject: string, category: string): string => {
   const base = `Subject: ${subject} (${category}).`;
   
-  if (['Matematika', 'Fisika', 'Kimia', 'Biologi', 'Matematika Peminatan', 'Matematika Terapan'].includes(subject)) {
-    return `${base} CRITICAL: Use INLINE LaTeX formatting for ALL equations using single '$' delimiters (e.g. "Calculate $E=mc^2$"). DO NOT use block delimiters like '$$' or '\\['. DO NOT insert line breaks before or after equations; they must flow naturally within the sentence.`;
+  if (['Matematika', 'Fisika', 'Kimia', 'Biologi', 'Matematika Peminatan', 'Matematika Terapan', 'IPAS'].includes(subject)) {
+    return `${base} CRITICAL LATEX RULES: 
+    1. ALWAYS use INLINE format with single '$' delimiters (e.g. "Calculate $E=mc^2$"). 
+    2. NEVER use block delimiters like '$$', '\\[' or '\\begin{equation}'. 
+    3. NEVER insert line breaks (\\n) before or after equations; they must flow naturally within the sentence.
+    4. Use '\\text{...}' for text inside equations.
+    5. Simplify fractions where possible to keep vertical height small.`;
   }
   if (subject === 'Bahasa Arab') {
     return `${base} CRITICAL: Content must be in Arabic script (Amiri font compatible). Use correct Tashkeel/Harakat where necessary for clarity. Ensure Right-to-Left (RTL) context logic.`;
@@ -75,6 +80,32 @@ const getSubjectInstruction = (subject: string, category: string): string => {
   }
   
   return base;
+};
+
+// Helper to clean LaTeX and force inline
+const sanitizeLatex = (text: string): string => {
+  if (!text) return "";
+  
+  let clean = text;
+  
+  // 1. Replace Block delimiters $$...$$ with $...$
+  clean = clean.replace(/\$\$([\s\S]*?)\$\$/g, '$$$1$$');
+  
+  // 2. Replace \[...\] with $...$
+  clean = clean.replace(/\\\[([\s\S]*?)\\\]/g, '$$$1$$');
+  
+  // 3. Remove \displaystyle which forces large vertical spacing
+  clean = clean.replace(/\\displaystyle/g, '');
+  
+  // 4. Remove equation environments
+  clean = clean.replace(/\\begin\{equation\}/g, '$').replace(/\\end\{equation\}/g, '$');
+  clean = clean.replace(/\\begin\{align\}/g, '$').replace(/\\end\{align\}/g, '$');
+  
+  // 5. Fix common newlines often added by AI around Math
+  // This regex finds newlines surrounding $...$ and removes them
+  clean = clean.replace(/\n\s*(\$)/g, ' $1').replace(/(\$)\s*\n/g, '$1 ');
+
+  return clean;
 };
 
 export const generateQuizContent = async (
@@ -229,13 +260,17 @@ export const generateQuizContent = async (
         throw new Error("Gagal memproses format data dari AI (Invalid JSON). Silakan coba lagi.");
     }
     
-    // 4. Post-process
+    // 4. Post-process & Sanitize Math
     const processedQuestions = parsed.questions.map((q: any, idx: number) => ({
       ...q,
       id: `gen-${Date.now()}-${idx}`,
+      text: sanitizeLatex(q.text), // Sanitize Text
+      explanation: sanitizeLatex(q.explanation), // Sanitize Explanation
+      options: q.options ? q.options.map((opt: string) => sanitizeLatex(opt)) : [], // Sanitize Options
+      stimulus: sanitizeLatex(q.stimulus), // Sanitize Stimulus
       hasImage: !!q.imagePrompt,
       hasImageInOptions: false,
-      imageUrl: undefined // Will be filled in step 2 (UI side or service chain)
+      imageUrl: undefined 
     }));
 
     return {
