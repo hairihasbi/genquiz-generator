@@ -125,7 +125,8 @@ const GlobalAndPrintStyles = () => (
         @media print {
             @page {
                 /* Set clear margins for the physical paper */
-                margin: 20mm 20mm 20mm 20mm; 
+                /* Standard Exam margins: Top 2.5cm, Bottom 2.5cm, Left 2.5cm, Right 2.5cm */
+                margin: 25mm 25mm 25mm 25mm; 
                 size: auto; 
             }
             
@@ -390,7 +391,7 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
        
        const css = `
          <style>
-           @page { size: ${paperSize === 'A4' ? '210mm 297mm' : '215mm 330mm'} portrait; margin: 20mm; }
+           @page { size: ${paperSize === 'A4' ? '210mm 297mm' : '215mm 330mm'} portrait; margin: 25mm; }
            body { font-family: 'Times New Roman', serif; font-size: 11pt; line-height: 1.5; color: #000; }
            .font-arabic { font-family: 'Traditional Arabic', 'Amiri', 'Arial', serif; direction: rtl; text-align: right; font-size: 16pt; margin-bottom: 5px; }
            .font-jp { font-family: 'MS Mincho', 'Yu Mincho', 'Noto Sans JP', sans-serif; }
@@ -526,7 +527,7 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
            <div className="flex-1 overflow-y-auto custom-scrollbar pt-32 pb-20 px-4 md:px-8 bg-slate-100 dark:bg-slate-950 bg-[url('https://www.transparenttextures.com/patterns/graphy.png')] flex justify-center relative">
                 
                 {/* Paper Container */}
-                <div id="print-area" className={`relative bg-white shadow-2xl ${dims} p-[20mm] text-black font-serif text-[11pt] leading-normal transition-all duration-500 origin-top animate-fade-in-up mb-20`}>
+                <div id="print-area" className={`relative bg-white shadow-2xl ${dims} p-[25mm] text-black font-serif text-[11pt] leading-normal transition-all duration-500 origin-top animate-fade-in-up mb-20`}>
                        
                        {/* Document Watermark (Optional Visual) */}
                        <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-slate-100 to-transparent pointer-events-none no-print"></div>
