@@ -124,9 +124,9 @@ const GlobalAndPrintStyles = () => (
         /* --- PRINT STYLES --- */
         @media print {
             @page {
-                /* Set clear margins for the physical paper */
-                /* Standard Exam margins: Top 2.5cm, Bottom 2.5cm, Left 2.5cm, Right 2.5cm */
-                margin: 25mm 25mm 25mm 25mm; 
+                /* Optimized margins to prevent large whitespace at top */
+                /* Top 1.5cm, Sides/Bottom 2.5cm */
+                margin: 15mm 25mm 25mm 25mm; 
                 size: auto; 
             }
             
@@ -139,7 +139,7 @@ const GlobalAndPrintStyles = () => (
                 print-color-adjust: exact;
             }
 
-            /* Reset Constraints but allow Grid/Flex */
+            /* Reset Constraints */
             html, body, #root, #quiz-result-view, .transform, .fixed, .absolute, .relative, .overflow-hidden, .overflow-auto, .h-full, .w-full {
                 position: static !important;
                 transform: none !important;
@@ -152,7 +152,10 @@ const GlobalAndPrintStyles = () => (
             /* Target Print Area */
             #print-area {
                 visibility: visible !important;
-                position: relative !important;
+                /* Absolute positioning forces it to top-left, ignoring parent padding (pt-32) */
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
                 width: 100% !important;
                 max-width: 100% !important;
                 margin: 0 auto !important;
@@ -554,7 +557,7 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
 
                        {activeTab === 'QUESTIONS' ? (
                            <div className="space-y-8">
-                               {quiz.questions.map((q, idx) => (
+                               {quiz.questions.map((q: Question, idx: number) => (
                                    <div key={q.id} className="avoid-break group relative">
                                        
                                        {/* Wacana / Stimulus Display */}
@@ -590,8 +593,8 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
                                                 {/* Options */}
                                                 {(q.type === QuestionType.MULTIPLE_CHOICE || q.type === QuestionType.COMPLEX_MULTIPLE_CHOICE) && (
                                                     // Explicit Grid for Print to aligned options like A.. B.. / C.. D..
-                                                    <div className={`mt-3 ${q.options && q.options.some(o => o.length > 60) ? 'flex flex-col gap-3' : 'grid grid-cols-2 gap-x-12 gap-y-2 print-grid'}`}>
-                                                        {q.options?.map((opt, i) => (
+                                                    <div className={`mt-3 ${q.options && q.options.some((o: string) => o.length > 60) ? 'flex flex-col gap-3' : 'grid grid-cols-2 gap-x-12 gap-y-2 print-grid'}`}>
+                                                        {q.options?.map((opt: string, i: number) => (
                                                             <div key={i} className="flex gap-3 items-start group/opt">
                                                                 <span className="font-bold text-sm min-w-[24px] uppercase">{String.fromCharCode(65+i)}.</span>
                                                                 <div className="text-sm pt-0.5 group-hover/opt:text-slate-900 transition-colors">
