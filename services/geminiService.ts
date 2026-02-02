@@ -1,0 +1,297 @@
+import { GoogleGenAI, Type, HarmCategory, HarmBlockThreshold } from "@google/genai";
+import { Question, QuestionType, QuizGenerationParams, Blueprint } from "../types";
+
+// --- API KEY ROTATION LOGIC ---
+const getApiKey = (): string => {
+  const envKeys = process.env.API_KEY;
+  if (!envKeys) {
+    console.error("API_KEY is missing in environment variables!");
+    return "";
+  }
+  // Support multiple keys separated by comma for rotation
+  const keys = envKeys.split(',').map(k => k.trim()).filter(k => k.length > 0);
+  if (keys.length === 0) return "";
+  
+  // Pick random key to distribute load
+  const selectedKey = keys[Math.floor(Math.random() * keys.length)];
+  return selectedKey;
+};
+
+// Initialize helper (We will re-init inside function to ensure rotation works per-request if needed, 
+// strictly speaking GoogleGenAI instance is cheap to create)
+const createAIClient = () => {
+  return new GoogleGenAI({ apiKey: getApiKey() });
+};
+
+// --- SYSTEM HEALTH CHECK ---
+export const validateGeminiConnection = async (): Promise<{success: boolean, message: string, latency: number, keyCount: number}> => {
+  const startTime = Date.now();
+  const envKeys = process.env.API_KEY || "";
+  const keys = envKeys.split(',').map(k => k.trim()).filter(k => k.length > 0);
+
+  if (keys.length === 0) {
+    return { success: false, message: "API_KEY not found in environment variables", latency: 0, keyCount: 0 };
+  }
+
+  try {
+    // Use the existing helper to create client (picks a random key)
+    const ai = createAIClient();
+    
+    // Perform a minimal token generation task using the fastest model
+    await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: { parts: [{ text: "Ping" }] },
+    });
+
+    const duration = Date.now() - startTime;
+    return { success: true, message: "Active & Responding", latency: duration, keyCount: keys.length };
+  } catch (error: any) {
+    return { success: false, message: error.message || "Connection failed", latency: 0, keyCount: keys.length };
+  }
+};
+
+// --- PROMPT ENGINEERING HELPERS ---
+
+const getSubjectInstruction = (subject: string, category: string): string => {
+  const base = `Subject: ${subject} (${category}).`;
+  
+  if (['Matematika', 'Fisika', 'Kimia', 'Biologi', 'Matematika Peminatan', 'Matematika Terapan'].includes(subject)) {
+    return `${base} CRITICAL: Use INLINE LaTeX formatting for ALL equations using single '$' delimiters (e.g. "Calculate $E=mc^2$"). DO NOT use block delimiters like '$$' or '\\['. DO NOT insert line breaks before or after equations; they must flow naturally within the sentence.`;
+  }
+  if (subject === 'Bahasa Arab') {
+    return `${base} CRITICAL: Content must be in Arabic script (Amiri font compatible). Use correct Tashkeel/Harakat where necessary for clarity. Ensure Right-to-Left (RTL) context logic.`;
+  }
+  if (subject === 'Bahasa Jepang') {
+    return `${base} CRITICAL: Use appropriate Kanji, Hiragana, and Katakana. Context: Noto Sans JP.`;
+  }
+  if (subject === 'Bahasa Korea') {
+    return `${base} CRITICAL: Use Hangul with correct spacing and honorifics. Context: Noto Serif KR.`;
+  }
+  if (subject === 'Bahasa Mandarin') {
+    return `${base} CRITICAL: Use Traditional Characters (繁體中文). Context: Noto Sans TC.`;
+  }
+  if (subject === 'Pendidikan Agama Islam dan Budi Pekerti') {
+     return `${base} Include relevant Dalil (Quran/Hadith) in explanations where applicable.`;
+  }
+  
+  return base;
+};
+
+export const generateQuizContent = async (
+  params: QuizGenerationParams,
+  factCheck: boolean = true
+): Promise<{ questions: Question[], blueprint: Blueprint[] }> => {
+  const textModel = 'gemini-3-flash-preview';
+  const ai = createAIClient(); // Use rotated key
+
+  // 1. Construct the System Instruction
+  const subjectSpecifics = getSubjectInstruction(params.subject, params.subjectCategory);
+  
+  const cognitiveRange = params.cognitiveLevels.join(', ');
+  const typesList = params.types.join(', ');
+
+  let systemInstruction = `
+    You are an expert curriculum developer for the Indonesian 'Kurikulum Merdeka'.
+    Your task is to generate a high-quality exam quiz based on the provided parameters.
+
+    ${subjectSpecifics}
+    
+    Target Audience: ${params.level} - ${params.grade}
+    Topic: ${params.topic}
+    Sub-Topic: ${params.subTopic || 'General'}
+    
+    Reference Material:
+    ${params.materialText ? `Use the following summary text as the PRIMARY source for questions:\n"${params.materialText.substring(0, 10000)}..."` : 'Use your general knowledge base aligned with the curriculum.'}
+
+    Configuration:
+    - Total Questions: ${params.questionCount}
+    - Difficulty: ${params.difficulty}
+    - Cognitive Levels allowed: ${cognitiveRange}
+    - Question Types allowed: ${typesList}
+    - Multiple Choice Options: ${params.mcOptionCount} (only for MC type)
+    - Image Requirements: Approximately ${params.imageQuestionCount} questions must require a visual aid. For these, provide a highly descriptive 'imagePrompt'.
+
+    Rules:
+    1. For 'ESSAY' and 'SHORT_ANSWER', 'options' must be an empty array.
+    2. For 'COMPLEX_MULTIPLE_CHOICE', 'correctAnswer' should be a string containing all correct keys (e.g., "A, C").
+    3. For 'MULTIPLE_CHOICE', provide exactly ${params.mcOptionCount} options.
+    4. Generate a 'Blueprint' (Kisi-kisi) for every question mapping it to a Basic Competency (KD/CP) and Indicator.
+    5. FORMATTING: Ensure all text is formatted for direct rendering. Do not use markdown headers (#) or bolding (**) in the question text unless necessary. STRICTLY NO newlines inside the question stem unless it is a distinct paragraph. All math must be inline.
+    6. Output JSON ONLY.
+  `;
+
+  if (params.enableReadingPassages) {
+    systemInstruction += `\n7. STIMULUS: Provide a 'stimulus' string (reading passage, dialogue, case study) for questions that require context.`;
+  }
+
+  if (factCheck) {
+     systemInstruction += `\nSTRICT FACT CHECKING: Ensure all historical dates, scientific formulas, and factual statements are verified. If uncertain about a specific detail, verify logic step-by-step.`;
+  }
+
+  // 2. Define Schema
+  const responseSchema = {
+    type: Type.OBJECT,
+    properties: {
+      questions: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            text: { type: Type.STRING, description: "The question stem. Use single '$' for inline LaTeX math. No line breaks." },
+            type: { type: Type.STRING, enum: Object.values(QuestionType) },
+            options: { type: Type.ARRAY, items: { type: Type.STRING } },
+            correctAnswer: { type: Type.STRING },
+            explanation: { type: Type.STRING },
+            difficulty: { type: Type.STRING },
+            cognitiveLevel: { type: Type.STRING },
+            stimulus: { type: Type.STRING, nullable: true, description: "Reading passage or context if enabled." },
+            imagePrompt: { type: Type.STRING, nullable: true, description: "Prompt for Gemini Image gen if visual is needed." },
+          },
+          required: ['text', 'type', 'options', 'correctAnswer', 'explanation', 'difficulty', 'cognitiveLevel']
+        }
+      },
+      blueprint: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            questionNumber: { type: Type.INTEGER },
+            basicCompetency: { type: Type.STRING },
+            indicator: { type: Type.STRING },
+            cognitiveLevel: { type: Type.STRING },
+            difficulty: { type: Type.STRING }
+          }
+        }
+      }
+    }
+  };
+
+  try {
+    // 3. Generate Text Content
+    const response = await ai.models.generateContent({
+      model: textModel,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: `Generate ${params.questionCount} questions about ${params.topic}.` },
+            // If reference image exists, add it to prompt context
+            ...(params.refImageBase64 ? [{
+              inlineData: {
+                mimeType: "image/jpeg", // Assuming jpeg for simplicity, logic handles base64
+                data: params.refImageBase64.split(',')[1] 
+              }
+            }, { text: "Use this image as a reference context for the questions." }] : [])
+          ]
+        }
+      ],
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: responseSchema,
+        temperature: 0.7,
+        maxOutputTokens: 8192,
+        // Add Safety Settings to prevent blocking harmless educational content
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ]
+      }
+    });
+
+    let text = response.text;
+    
+    // Safety check for empty response
+    if (!text || text.trim().length === 0) {
+        // Fallback: Try to retrieve from candidates if text accessor failed but data exists
+        const candidate = response.candidates?.[0];
+        if (candidate?.finishReason !== 'STOP') {
+             throw new Error(`AI generation stopped unexpectedly. Reason: ${candidate?.finishReason || 'Unknown'}`);
+        }
+        throw new Error("AI returned empty response. Try reducing question count or changing topic.");
+    }
+    
+    // Clean potential markdown wrapping if somehow the model adds it despite mimeType
+    text = text.trim();
+    if (text.startsWith("```json")) {
+        text = text.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+    } else if (text.startsWith("```")) {
+        text = text.replace(/^```\s*/, "").replace(/\s*```$/, "");
+    }
+
+    let parsed;
+    try {
+        parsed = JSON.parse(text);
+    } catch (e) {
+        console.error("JSON Parse Error. Raw Text:", text);
+        throw new Error("Gagal memproses format data dari AI (Invalid JSON). Silakan coba lagi.");
+    }
+    
+    // 4. Post-process
+    const processedQuestions = parsed.questions.map((q: any, idx: number) => ({
+      ...q,
+      id: `gen-${Date.now()}-${idx}`,
+      hasImage: !!q.imagePrompt,
+      hasImageInOptions: false,
+      imageUrl: undefined // Will be filled in step 2 (UI side or service chain)
+    }));
+
+    return {
+      questions: processedQuestions,
+      blueprint: parsed.blueprint || []
+    };
+
+  } catch (error) {
+    console.error("Gemini Generation Error:", error);
+    throw error;
+  }
+};
+
+export const generateImageForQuestion = async (prompt: string): Promise<string> => {
+  const imageModel = 'gemini-2.5-flash-image';
+  const ai = createAIClient(); // Use rotated key
+
+  try {
+    const response = await ai.models.generateContent({
+      model: imageModel,
+      contents: prompt,
+    });
+
+    const parts = response.candidates?.[0]?.content?.parts;
+    if (parts) {
+      for (const part of parts) {
+        if (part.inlineData && part.inlineData.data) {
+           return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        }
+      }
+    }
+    return generateSvgFallback(prompt);
+
+  } catch (error) {
+    console.warn("Image gen failed, using SVG fallback", error);
+    return generateSvgFallback(prompt);
+  }
+};
+
+const generateSvgFallback = (prompt: string): string => {
+  const bg = "#fff7ed"; // brand-50
+  const stroke = "#f97316"; // brand-500
+  const text = prompt.length > 30 ? prompt.substring(0, 30) + "..." : prompt;
+  
+  const svg = `
+    <svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100%" height="100%" fill="${bg}"/>
+      <circle cx="200" cy="150" r="80" stroke="${stroke}" stroke-width="3" fill="none" opacity="0.5"/>
+      <path d="M150 150 L250 150 M200 100 L200 200" stroke="${stroke}" stroke-width="3" opacity="0.5"/>
+      <text x="50%" y="90%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#c2410c">
+        ${text}
+      </text>
+      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="24" font-weight="bold" fill="#ea580c">
+        IMG
+      </text>
+    </svg>
+  `;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+};
