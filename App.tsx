@@ -84,9 +84,29 @@ import { dbService } from './services/dbService';
 import MathRenderer from './components/MathRenderer';
 import Homepage from './components/Homepage';
 
-// --- STYLES FOR PRINTING ---
-const PrintStyles = () => (
+// --- STYLES FOR PRINTING & MATH ALIGNMENT ---
+const GlobalAndPrintStyles = () => (
     <style>{`
+        /* --- GLOBAL MATHJAX FIXES --- */
+        /* Ensure inline math doesn't break lines */
+        mjx-container {
+            display: inline-block !important;
+            margin: 0 2px !important;
+            vertical-align: middle !important;
+        }
+        
+        /* Specific fix for SVG rendering */
+        mjx-container > svg {
+            display: inline-block !important;
+            vertical-align: middle !important;
+            margin: 0 !important;
+        }
+
+        /* Prevent math from being too small or too large */
+        .mjx-chtml {
+            font-size: 100% !important;
+        }
+
         @media print {
             @page {
                 margin: 0;
@@ -513,7 +533,7 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
                                                 {showAnswers && (
                                                     <div className="mt-2 p-2 bg-slate-100 border border-slate-300 text-xs font-sans rounded break-inside-avoid">
                                                         <strong>Kunci:</strong> {Array.isArray(q.correctAnswer) ? q.correctAnswer.join(', ') : q.correctAnswer} <br/>
-                                                        <strong>Pembahasan:</strong> {q.explanation}
+                                                        <strong>Pembahasan:</strong> <MathRenderer content={q.explanation} inline />
                                                     </div>
                                                 )}
                                            </div>
@@ -1474,7 +1494,7 @@ const App = () => {
   if (isLoading) { return (<div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="flex flex-col items-center gap-4"><div className="w-16 h-16 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div><p className="text-slate-500 font-bold animate-pulse">Memuat Aplikasi...</p></div></div>); }
   return (
     <Router>
-      <PrintStyles />
+      <GlobalAndPrintStyles />
       {user && <CronWorker user={user} />}
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-200">
         <Routes>
