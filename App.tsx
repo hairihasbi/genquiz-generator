@@ -947,7 +947,25 @@ const HistoryArchive = ({ user }: { user: User }) => {
 
 // 6. Create Quiz Form
 const SUBJECTS = {
-  "Wajib Umum": ["Pendidikan Agama Islam dan Budi Pekerti", "Pendidikan Pancasila", "Bahasa Indonesia", "Matematika", "Sejarah", "Bahasa Inggris", "Seni Budaya", "PJOK", "PKWU"],
+  "Wajib Umum": [
+    "Pendidikan Agama Islam dan Budi Pekerti", 
+    "Pendidikan Pancasila", 
+    "Bahasa Indonesia", 
+    "Matematika", 
+    "Sejarah", 
+    "Sejarah Indonesia",
+    "Bahasa Inggris", 
+    "Seni Budaya", 
+    "PJOK", 
+    "PKWU",
+    "Al-Qur’an Hadis",
+    "Akidah Akhlak",
+    "Fikih",
+    "Sejarah Kebudayaan Islam",
+    "Ilmu Tafsir",
+    "Ilmu Hadis",
+    "Ushul Fikih"
+  ],
   "Peminatan MIPA": ["Biologi", "Fisika", "Kimia", "Matematika Peminatan"],
   "Peminatan IPS": ["Sosiologi", "Ekonomi", "Geografi", "Antropologi"],
   "Bahasa & Budaya": ["Bahasa & Sastra Indonesia", "Bahasa & Sastra Inggris", "Bahasa Arab", "Bahasa Jepang", "Bahasa Korea", "Bahasa Mandarin", "Bahasa Jerman", "Bahasa Perancis"],
