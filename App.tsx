@@ -70,7 +70,8 @@ import {
   Wallet,
   QrCode,
   Copy,
-  MessageCircle
+  MessageCircle,
+  Loader2
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -88,6 +89,7 @@ import { generateQuizContent, generateImageForQuestion, validateGeminiConnection
 import { dbService } from './services/dbService';
 import MathRenderer from './components/MathRenderer';
 import Homepage from './components/Homepage';
+import TourGuide, { Step } from './components/TourGuide';
 
 // --- STYLES FOR PRINTING & MATH ALIGNMENT ---
 const GlobalAndPrintStyles = () => (
@@ -268,8 +270,13 @@ const Sidebar = ({ user, isOpen, setIsOpen, onLogout }: any) => {
           {menuItems.map((item) => {
             if (!item.roles.includes(user.role)) return null;
             const isActive = location.pathname === item.path;
+            // Add IDs for Tour Guide
+            let tourId = undefined;
+            if (item.path === '/create-quiz') tourId = 'tour-nav-create';
+            if (item.path === '/history') tourId = 'tour-nav-history';
+
             return (
-              <Link key={item.path} to={item.path} onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/30' : 'text-slate-600 dark:text-slate-400 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-slate-800'}`}>
+              <Link id={tourId} key={item.path} to={item.path} onClick={() => setIsOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${isActive ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/30' : 'text-slate-600 dark:text-slate-400 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-slate-800'}`}>
                 <item.icon size={20} />{item.label}
               </Link>
             );
@@ -376,7 +383,16 @@ const Dashboard = ({ user }: { user: User }) => {
   const [chartData, setChartData] = useState<{name: string, generated: number, published: number}[]>([]);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [showDonation, setShowDonation] = useState(false);
+  const [runTour, setRunTour] = useState(false);
   
+  useEffect(() => {
+    // Check Tour Status
+    if (!localStorage.getItem('genz_tour_completed')) {
+        const t = setTimeout(() => setRunTour(true), 1500);
+        return () => clearTimeout(t);
+    }
+  }, []);
+
   useEffect(() => {
     const loadStats = async () => {
       // Filter logic: Admin sees all, Teacher sees only theirs
@@ -423,12 +439,42 @@ const Dashboard = ({ user }: { user: User }) => {
   }, [user]);
 
   const isCronActive = settings?.cron.enabled || false;
+
+  const tourSteps: Step[] = [
+    { targetId: 'tour-stats-card', title: 'Statistik Anda', content: 'Lihat ringkasan soal yang telah dibuat dan status sistem di sini.' },
+    { targetId: 'tour-credits-card', title: 'Credit Guru', content: 'Pantau sisa credit Anda. Credit digunakan setiap kali membuat quiz baru.' },
+    { targetId: 'tour-nav-create', title: 'Buat Quiz', content: 'Klik menu ini untuk mulai membuat soal otomatis dengan AI.' },
+    { targetId: 'tour-nav-history', title: 'Riwayat & Arsip', content: 'Akses kembali soal yang sudah dibuat, edit, atau download dalam format Word/PDF.' },
+  ];
   
   return (
     <div className="space-y-6">
+      <TourGuide isOpen={runTour} steps={tourSteps} onClose={() => setRunTour(false)} onComplete={() => { setRunTour(false); localStorage.setItem('genz_tour_completed', 'true'); }} />
       {showDonation && <DonationModal user={user} onClose={() => setShowDonation(false)} />}
+      
+      {/* Low Credit Warning Notification */}
+      {user.credits < 10 && (
+        <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm animate-fade-in-up">
+            <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-100 rounded-full text-orange-600">
+                    <AlertTriangle size={20} />
+                </div>
+                <div>
+                    <p className="font-bold text-orange-800">Credit Menipis!</p>
+                    <p className="text-sm text-orange-700">Sisa credit Anda kurang dari 10. Segera isi ulang untuk terus membuat soal.</p>
+                </div>
+            </div>
+            <button 
+                onClick={() => setShowDonation(true)}
+                className="w-full sm:w-auto px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-bold rounded-lg transition-colors shadow-md shadow-orange-500/20 whitespace-nowrap"
+            >
+                Isi Ulang Sekarang
+            </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:scale-[1.02] transition-transform">
+        <div id="tour-stats-card" className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:scale-[1.02] transition-transform">
             <div className="flex items-center justify-between">
               <div><p className="text-sm text-slate-500 dark:text-slate-400">Total Quiz</p><p className="text-2xl font-bold text-slate-800 dark:text-white mt-1">{stats.quizCount}</p></div>
               <div className="p-3 rounded-xl bg-blue-500 bg-opacity-10"><BookOpen className="w-6 h-6 text-blue-500" /></div>
@@ -442,12 +488,12 @@ const Dashboard = ({ user }: { user: User }) => {
         </div>
         
         {/* Credit Card with Donation Button - Updated Layout */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:scale-[1.02] transition-transform">
+        <div id="tour-credits-card" className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:scale-[1.02] transition-transform">
             <div className="flex items-center justify-between">
               <div>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Credit Guru</p>
                   <div className="flex items-center gap-3">
-                      <p className="text-2xl font-bold text-green-600">{user.credits}</p>
+                      <p className={`text-2xl font-bold ${user.credits < 10 ? 'text-orange-600' : 'text-green-600'}`}>{user.credits}</p>
                       <button 
                           onClick={() => setShowDonation(true)}
                           className="px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
