@@ -619,6 +619,18 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
    // Dimensions logic
    const dims = paperSize === 'A4' ? 'w-[210mm] min-h-[297mm]' : 'w-[225mm] min-h-[330mm]';
 
+   // Helper to display type label
+   const getTypeLabel = (type: QuestionType) => {
+       switch(type) {
+           case QuestionType.MULTIPLE_CHOICE: return "Pilihan Ganda";
+           case QuestionType.COMPLEX_MULTIPLE_CHOICE: return "Pilihan Ganda Kompleks";
+           case QuestionType.TRUE_FALSE: return "Benar / Salah";
+           case QuestionType.SHORT_ANSWER: return "Isian Singkat";
+           case QuestionType.ESSAY: return "Uraian / Essay";
+           default: return "Soal";
+       }
+   };
+
    return (
        <div id="quiz-result-view" className="fixed inset-0 z-[60] bg-slate-100 dark:bg-slate-950 flex flex-col overflow-hidden font-sans">
            
@@ -745,84 +757,97 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
 
                        {activeTab === 'QUESTIONS' ? (
                            <div className="space-y-8">
-                               {quiz.questions.map((q: Question, idx: number) => (
-                                   <div key={q.id} className="avoid-break group relative">
-                                       
-                                       {/* Wacana / Stimulus Display */}
-                                       {q.stimulus && (
-                                           <div className="wacana-box mb-4 p-4 bg-slate-50 border-l-4 border-slate-400 text-sm rounded-r-lg italic text-slate-800 relative">
-                                               <span className="absolute -top-3 left-2 bg-slate-200 text-[10px] font-bold px-2 py-0.5 rounded text-slate-600 uppercase no-print">Stimulus</span>
-                                               <div className={`${quiz.subject === 'Bahasa Arab' ? 'font-arabic text-right' : ''}`}>
-                                                   <MathRenderer content={q.stimulus} />
-                                               </div>
+                               {quiz.questions.map((q: Question, idx: number) => {
+                                   // Check if type changed from previous question
+                                   const isNewType = idx === 0 || quiz.questions[idx - 1].type !== q.type;
+                                   
+                                   return (
+                                     <React.Fragment key={q.id}>
+                                       {/* Section Header if Type Changed */}
+                                       {isNewType && (
+                                           <div className="w-full my-6 py-2 border-y-2 border-slate-200 print:border-black font-bold text-center uppercase tracking-widest text-slate-700 print:text-black avoid-break-after text-sm bg-slate-50 print:bg-transparent">
+                                               -- {getTypeLabel(q.type)} --
                                            </div>
                                        )}
+                                       
+                                       <div className="avoid-break group relative">
+                                           {/* Wacana / Stimulus Display */}
+                                           {q.stimulus && (
+                                               <div className="wacana-box mb-4 p-4 bg-slate-50 border-l-4 border-slate-400 text-sm rounded-r-lg italic text-slate-800 relative">
+                                                   <span className="absolute -top-3 left-2 bg-slate-200 text-[10px] font-bold px-2 py-0.5 rounded text-slate-600 uppercase no-print">Stimulus</span>
+                                                   <div className={`${quiz.subject === 'Bahasa Arab' ? 'font-arabic text-right' : ''}`}>
+                                                       <MathRenderer content={q.stimulus} />
+                                                   </div>
+                                               </div>
+                                           )}
 
-                                       {/* Question Container - Flex for proper alignment of Number vs Text */}
-                                       <div className="flex gap-4 print-flex items-start">
-                                           {/* Question Number */}
-                                           <div className="flex-shrink-0 w-8 font-bold text-lg text-right leading-tight pt-0.5">
-                                               {idx + 1}.
-                                           </div>
+                                           {/* Question Container - Flex for proper alignment of Number vs Text */}
+                                           <div className="flex gap-4 print-flex items-start">
+                                               {/* Question Number */}
+                                               <div className="flex-shrink-0 w-8 font-bold text-lg text-right leading-tight pt-0.5">
+                                                   {idx + 1}.
+                                               </div>
 
-                                           <div className="flex-1 min-w-0">
-                                                {/* Question Text */}
-                                                <div className={`mb-4 text-justify ${quiz.subject === 'Bahasa Arab' ? 'font-arabic text-right text-xl' : ''}`}>
-                                                    <MathRenderer content={q.text} />
-                                                </div>
-                                                
-                                                {/* Image */}
-                                                {q.imageUrl && (
-                                                    <div className="my-4 flex justify-center bg-slate-50 p-2 border border-slate-200 rounded no-print-border">
-                                                        <img src={q.imageUrl} alt="Visual" className="max-h-[6cm] object-contain" />
+                                               <div className="flex-1 min-w-0">
+                                                    {/* Question Text */}
+                                                    <div className={`mb-4 text-justify ${quiz.subject === 'Bahasa Arab' ? 'font-arabic text-right text-xl' : ''}`}>
+                                                        <MathRenderer content={q.text} />
                                                     </div>
-                                                )}
+                                                    
+                                                    {/* Image */}
+                                                    {q.imageUrl && (
+                                                        <div className="my-4 flex justify-center bg-slate-50 p-2 border border-slate-200 rounded no-print-border">
+                                                            <img src={q.imageUrl} alt="Visual" className="max-h-[6cm] object-contain" />
+                                                        </div>
+                                                    )}
 
-                                                {/* Options */}
-                                                {(q.type === QuestionType.MULTIPLE_CHOICE || q.type === QuestionType.COMPLEX_MULTIPLE_CHOICE) && (
-                                                    // Explicit Grid for Print to aligned options like A.. B.. / C.. D..
-                                                    <div className={`mt-3 ${q.options && q.options.some((o: string) => o.length > 60) ? 'flex flex-col gap-3' : 'grid grid-cols-2 gap-x-12 gap-y-2 print-grid'}`}>
-                                                        {q.options?.map((opt: string, i: number) => (
-                                                            <div key={i} className="flex gap-3 items-start group/opt">
-                                                                <span className="font-bold text-sm min-w-[24px] uppercase">{String.fromCharCode(65+i)}.</span>
-                                                                <div className="text-sm pt-0.5 group-hover/opt:text-slate-900 transition-colors">
-                                                                    <MathRenderer content={opt} inline />
+                                                    {/* Options */}
+                                                    {(q.type === QuestionType.MULTIPLE_CHOICE || q.type === QuestionType.COMPLEX_MULTIPLE_CHOICE) && (
+                                                        // Explicit Grid for Print to aligned options like A.. B.. / C.. D..
+                                                        <div className={`mt-3 ${q.options && q.options.some((o: string) => o.length > 60) ? 'flex flex-col gap-3' : 'grid grid-cols-2 gap-x-12 gap-y-2 print-grid'}`}>
+                                                            {q.options?.map((opt: string, i: number) => (
+                                                                <div key={i} className="flex gap-3 items-start group/opt">
+                                                                    <span className="font-bold text-sm min-w-[24px] uppercase">{String.fromCharCode(65+i)}.</span>
+                                                                    <div className="text-sm pt-0.5 group-hover/opt:text-slate-900 transition-colors">
+                                                                        <MathRenderer content={opt} inline />
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    {/* True/False Options Display (ADDED) */}
+                                                    {q.type === QuestionType.TRUE_FALSE && (
+                                                        <div className="mt-3 flex gap-8 pl-1 select-none">
+                                                            {['Benar', 'Salah'].map((opt) => (
+                                                                <div key={opt} className="flex items-center gap-2.5">
+                                                                    <div className="w-5 h-5 rounded-full border-2 border-slate-300 print:border-black flex items-center justify-center"></div>
+                                                                    <span className="font-bold text-sm text-slate-700 print:text-black">{opt}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Answer Key (Review Mode) */}
+                                                    {showAnswers && (
+                                                        <div className="mt-4 p-4 bg-green-50 border border-green-200 text-xs font-sans rounded-xl break-inside-avoid shadow-sm flex items-start gap-3 print:bg-green-50 print:border-green-200">
+                                                            <div className="p-1.5 bg-green-200 text-green-700 rounded-lg print:bg-green-200 print:text-green-800">
+                                                                <CheckCircle2 size={16}/>
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-bold text-green-800 mb-1">Kunci Jawaban: {Array.isArray(q.correctAnswer) ? q.correctAnswer.join(', ') : q.correctAnswer}</p>
+                                                                <div className="text-slate-600 leading-relaxed">
+                                                                    <span className="font-semibold text-slate-800">Pembahasan:</span> <MathRenderer content={q.explanation} inline />
                                                                 </div>
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                {/* True/False Options Display (ADDED) */}
-                                                {q.type === QuestionType.TRUE_FALSE && (
-                                                    <div className="mt-3 flex gap-8 pl-1 select-none">
-                                                        {['Benar', 'Salah'].map((opt) => (
-                                                            <div key={opt} className="flex items-center gap-2.5">
-                                                                <div className="w-5 h-5 rounded-full border-2 border-slate-300 print:border-black flex items-center justify-center"></div>
-                                                                <span className="font-bold text-sm text-slate-700 print:text-black">{opt}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                {/* Answer Key (Review Mode) */}
-                                                {showAnswers && (
-                                                    <div className="mt-4 p-4 bg-green-50 border border-green-200 text-xs font-sans rounded-xl break-inside-avoid shadow-sm flex items-start gap-3 print:bg-green-50 print:border-green-200">
-                                                        <div className="p-1.5 bg-green-200 text-green-700 rounded-lg print:bg-green-200 print:text-green-800">
-                                                            <CheckCircle2 size={16}/>
                                                         </div>
-                                                        <div>
-                                                            <p className="font-bold text-green-800 mb-1">Kunci Jawaban: {Array.isArray(q.correctAnswer) ? q.correctAnswer.join(', ') : q.correctAnswer}</p>
-                                                            <div className="text-slate-600 leading-relaxed">
-                                                                <span className="font-semibold text-slate-800">Pembahasan:</span> <MathRenderer content={q.explanation} inline />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
+                                                    )}
+                                               </div>
                                            </div>
                                        </div>
-                                   </div>
-                               ))}
+                                     </React.Fragment>
+                                   );
+                               })}
                            </div>
                        ) : (
                            <div>
