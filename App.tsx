@@ -65,7 +65,12 @@ import {
   LogIn,
   Link2,
   ArrowLeft,
-  ChevronLeft
+  ChevronLeft,
+  Heart,
+  Wallet,
+  QrCode,
+  Copy,
+  MessageCircle
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -276,10 +281,100 @@ const Sidebar = ({ user, isOpen, setIsOpen, onLogout }: any) => {
   );
 };
 
+// --- DONATION MODAL ---
+const DonationModal = ({ onClose, user }: { onClose: () => void, user: User }) => {
+    const [method, setMethod] = useState<'DANA' | 'SHOPEE'>('DANA');
+    
+    const accountInfo = {
+        DANA: { number: '0852-4848-1527', name: 'Gen-Z Admin', color: 'bg-[#118EE9]', text: 'text-[#118EE9]' },
+        SHOPEE: { number: '0852-4848-1527', name: 'Gen-Z Admin', color: 'bg-[#EE4D2D]', text: 'text-[#EE4D2D]' }
+    };
+
+    const handleCopy = (text: string) => {
+        navigator.clipboard.writeText(text);
+        alert("Nomor tersalin!");
+    };
+
+    const handleConfirm = () => {
+        const msg = `Halo Admin Gen-Z Quiz, saya *${user.username}* telah mengirim donasi via ${method}. Mohon cek dan tambah credit saya. Terima kasih!`;
+        window.open(`https://wa.me/6285248481527?text=${encodeURIComponent(msg)}`, '_blank');
+    };
+
+    return (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in-up">
+            <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden relative">
+                <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-slate-100 dark:bg-slate-700 rounded-full text-slate-500 hover:text-slate-800 transition-colors">
+                    <X size={20} />
+                </button>
+
+                <div className="p-6 pb-0 text-center">
+                    <div className="w-16 h-16 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                        <Heart size={32} fill="currentColor" />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-white">Dukungan & Top Up</h3>
+                    <p className="text-sm text-slate-500 mt-2">Dukungan Anda membantu server kami tetap hidup. Credit akan ditambahkan setelah konfirmasi.</p>
+                </div>
+
+                <div className="p-6">
+                    {/* Method Selector */}
+                    <div className="flex p-1 bg-slate-100 dark:bg-slate-700 rounded-xl mb-6">
+                        <button 
+                            onClick={() => setMethod('DANA')} 
+                            className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${method === 'DANA' ? 'bg-white dark:bg-slate-600 shadow-sm text-[#118EE9]' : 'text-slate-500'}`}
+                        >
+                            <Wallet size={16} /> DANA
+                        </button>
+                        <button 
+                            onClick={() => setMethod('SHOPEE')} 
+                            className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${method === 'SHOPEE' ? 'bg-white dark:bg-slate-600 shadow-sm text-[#EE4D2D]' : 'text-slate-500'}`}
+                        >
+                            <Wallet size={16} /> ShopeePay
+                        </button>
+                    </div>
+
+                    {/* QR & Info Area */}
+                    <div className={`rounded-2xl p-6 border-2 transition-colors ${method === 'DANA' ? 'border-[#118EE9]/20 bg-[#118EE9]/5' : 'border-[#EE4D2D]/20 bg-[#EE4D2D]/5'}`}>
+                        <div className="flex flex-col items-center">
+                            <div className="w-48 h-48 bg-white p-2 rounded-xl shadow-sm mb-4">
+                                {/* Simulated QR Code Pattern */}
+                                <div className="w-full h-full border-2 border-slate-900 rounded-lg flex items-center justify-center bg-slate-50 relative overflow-hidden">
+                                    <QrCode size={120} className="text-slate-900" />
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <span className={`px-2 py-1 bg-white text-xs font-bold rounded shadow-sm border ${method === 'DANA' ? 'text-[#118EE9] border-[#118EE9]' : 'text-[#EE4D2D] border-[#EE4D2D]'}`}>
+                                            SCAN ME
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="text-center w-full">
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{method === 'DANA' ? 'Nomor DANA' : 'Nomor ShopeePay'}</p>
+                                <div className="flex items-center justify-center gap-2 mb-1">
+                                    <span className={`text-xl font-bold font-mono ${accountInfo[method].text}`}>{accountInfo[method].number}</span>
+                                    <button onClick={() => handleCopy(accountInfo[method].number)} className="p-1.5 hover:bg-black/5 rounded-md transition-colors"><Copy size={14} className="text-slate-400"/></button>
+                                </div>
+                                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">a.n {accountInfo[method].name}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={handleConfirm}
+                        className="w-full mt-6 bg-[#25D366] hover:bg-[#20bd5a] text-white py-3.5 rounded-xl font-bold shadow-lg shadow-green-500/20 flex items-center justify-center gap-2 transition-all active:scale-95"
+                    >
+                        <MessageCircle size={20} /> Konfirmasi via WhatsApp
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // 2. Dashboard
 const Dashboard = ({ user }: { user: User }) => {
   const [stats, setStats] = useState({ quizCount: 0, generated: 0 });
   const [settings, setSettings] = useState<SystemSettings | null>(null);
+  const [showDonation, setShowDonation] = useState(false);
   useEffect(() => {
     const loadStats = async () => {
       const quizzes = await dbService.getQuizzes();
@@ -293,20 +388,46 @@ const Dashboard = ({ user }: { user: User }) => {
   const data = [{ name: 'Sen', generated: 40, published: 24 }, { name: 'Sel', generated: 30, published: 13 }, { name: 'Rab', generated: 20, published: 98 }, { name: 'Kam', generated: 27, published: 39 }, { name: 'Jum', generated: 18, published: 48 }];
   return (
     <div className="space-y-6">
+      {showDonation && <DonationModal user={user} onClose={() => setShowDonation(false)} />}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Quiz', val: stats.quizCount.toString(), icon: BookOpen, color: 'bg-blue-500' },
-          { label: 'Bank Soal', val: stats.generated.toString(), icon: Database, color: 'bg-brand-500' },
-          { label: 'Credit Guru', val: user.credits.toString(), icon: Users, color: 'bg-green-500' },
-          { label: 'System Status', val: isCronActive ? 'Cron Active' : 'Cron Idle', icon: isCronActive ? RotateCw : Power, color: isCronActive ? 'bg-purple-500' : 'bg-slate-500' },
-        ].map((stat, i) => (
-          <div key={i} className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:scale-[1.02] transition-transform">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:scale-[1.02] transition-transform">
             <div className="flex items-center justify-between">
-              <div><p className="text-sm text-slate-500 dark:text-slate-400">{stat.label}</p><p className="text-2xl font-bold text-slate-800 dark:text-white mt-1">{stat.val}</p></div>
-              <div className={`p-3 rounded-xl ${stat.color} bg-opacity-10`}><stat.icon className={`w-6 h-6 ${stat.color.replace('bg-', 'text-')}`} /></div>
+              <div><p className="text-sm text-slate-500 dark:text-slate-400">Total Quiz</p><p className="text-2xl font-bold text-slate-800 dark:text-white mt-1">{stats.quizCount}</p></div>
+              <div className="p-3 rounded-xl bg-blue-500 bg-opacity-10"><BookOpen className="w-6 h-6 text-blue-500" /></div>
             </div>
-          </div>
-        ))}
+        </div>
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:scale-[1.02] transition-transform">
+            <div className="flex items-center justify-between">
+              <div><p className="text-sm text-slate-500 dark:text-slate-400">Bank Soal</p><p className="text-2xl font-bold text-slate-800 dark:text-white mt-1">{stats.generated}</p></div>
+              <div className="p-3 rounded-xl bg-brand-500 bg-opacity-10"><Database className="w-6 h-6 text-brand-500" /></div>
+            </div>
+        </div>
+        
+        {/* Credit Card with Donation Button - Updated Layout */}
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:scale-[1.02] transition-transform">
+            <div className="flex items-center justify-between">
+              <div>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Credit Guru</p>
+                  <div className="flex items-center gap-3">
+                      <p className="text-2xl font-bold text-green-600">{user.credits}</p>
+                      <button 
+                          onClick={() => setShowDonation(true)}
+                          className="px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                      >
+                          <Heart size={12} className="fill-green-600"/> Isi Ulang / Donasi
+                      </button>
+                  </div>
+              </div>
+              <div className="p-3 rounded-xl bg-green-500 bg-opacity-10"><Coins className="w-6 h-6 text-green-500" /></div>
+            </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:scale-[1.02] transition-transform">
+            <div className="flex items-center justify-between">
+              <div><p className="text-sm text-slate-500 dark:text-slate-400">System Status</p><p className="text-2xl font-bold text-slate-800 dark:text-white mt-1">{isCronActive ? 'Cron Active' : 'Cron Idle'}</p></div>
+              <div className={`p-3 rounded-xl ${isCronActive ? 'bg-purple-500' : 'bg-slate-500'} bg-opacity-10`}><RotateCw className={`w-6 h-6 ${isCronActive ? 'text-purple-500' : 'text-slate-500'}`} /></div>
+            </div>
+        </div>
       </div>
       <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
         <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6">Statistik Pembuatan Soal</h3>
@@ -629,6 +750,18 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
                                                                 <div className="text-sm pt-0.5 group-hover/opt:text-slate-900 transition-colors">
                                                                     <MathRenderer content={opt} inline />
                                                                 </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* True/False Options Display (ADDED) */}
+                                                {q.type === QuestionType.TRUE_FALSE && (
+                                                    <div className="mt-3 flex gap-8 pl-1 select-none">
+                                                        {['Benar', 'Salah'].map((opt) => (
+                                                            <div key={opt} className="flex items-center gap-2.5">
+                                                                <div className="w-5 h-5 rounded-full border-2 border-slate-300 print:border-black flex items-center justify-center"></div>
+                                                                <span className="font-bold text-sm text-slate-700 print:text-black">{opt}</span>
                                                             </div>
                                                         ))}
                                                     </div>
