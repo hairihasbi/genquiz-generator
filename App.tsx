@@ -373,8 +373,10 @@ const DonationModal = ({ onClose, user }: { onClose: () => void, user: User }) =
 // 2. Dashboard
 const Dashboard = ({ user }: { user: User }) => {
   const [stats, setStats] = useState({ quizCount: 0, generated: 0 });
+  const [chartData, setChartData] = useState<{name: string, generated: number, published: number}[]>([]);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [showDonation, setShowDonation] = useState(false);
+  
   useEffect(() => {
     const loadStats = async () => {
       // Filter logic: Admin sees all, Teacher sees only theirs
@@ -385,13 +387,43 @@ const Dashboard = ({ user }: { user: User }) => {
       const totalQuestions = quizzes.reduce((acc, q) => acc + (q.questions ? q.questions.length : 0), 0);
       
       setStats({ quizCount: quizzes.length, generated: totalQuestions });
+
+      // --- CHART LOGIC: Real Last 7 Days Data ---
+      const last7Days = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - (6 - i)); // -6 days to Today
+          return d;
+      });
+
+      const processedData = last7Days.map(date => {
+          // Format Day Name (e.g., Sen, Sel, Rab)
+          const dayName = date.toLocaleDateString('id-ID', { weekday: 'short' });
+          
+          // Filter quizzes for this specific date
+          const dailyQuizzes = quizzes.filter(q => {
+              const qDate = new Date(q.createdAt);
+              return qDate.getDate() === date.getDate() && 
+                     qDate.getMonth() === date.getMonth() && 
+                     qDate.getFullYear() === date.getFullYear();
+          });
+
+          return {
+              name: dayName,
+              generated: dailyQuizzes.length,
+              published: dailyQuizzes.filter(q => q.status === 'PUBLISHED').length
+          };
+      });
+
+      setChartData(processedData);
+      
       const s = await dbService.getSettings();
       setSettings(s);
     };
     loadStats();
   }, [user]);
+
   const isCronActive = settings?.cron.enabled || false;
-  const data = [{ name: 'Sen', generated: 40, published: 24 }, { name: 'Sel', generated: 30, published: 13 }, { name: 'Rab', generated: 20, published: 98 }, { name: 'Kam', generated: 27, published: 39 }, { name: 'Jum', generated: 18, published: 48 }];
+  
   return (
     <div className="space-y-6">
       {showDonation && <DonationModal user={user} onClose={() => setShowDonation(false)} />}
@@ -436,10 +468,10 @@ const Dashboard = ({ user }: { user: User }) => {
         </div>
       </div>
       <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
-        <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6">Statistik Pembuatan Soal</h3>
+        <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6">Statistik Pembuatan Soal (7 Hari Terakhir)</h3>
         <div className="h-80 w-full" style={{ minHeight: '320px' }}>
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-            <BarChart data={data}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="name" stroke="#64748b" /><YAxis stroke="#64748b" /><Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} /><Legend /><Bar dataKey="generated" fill="#f97316" radius={[4, 4, 0, 0]} name="Soal Dibuat" /><Bar dataKey="published" fill="#cbd5e1" radius={[4, 4, 0, 0]} name="Terpublish" /></BarChart>
+            <BarChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="name" stroke="#64748b" /><YAxis stroke="#64748b" allowDecimals={false} /><Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} /><Legend /><Bar dataKey="generated" fill="#f97316" radius={[4, 4, 0, 0]} name="Soal Dibuat" /><Bar dataKey="published" fill="#cbd5e1" radius={[4, 4, 0, 0]} name="Terpublish" /></BarChart>
           </ResponsiveContainer>
         </div>
       </div>
