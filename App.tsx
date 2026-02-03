@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import ReactDOM from 'react-dom/client';
 import { 
   HashRouter as Router, 
   Routes, 
@@ -388,12 +387,26 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
    };
 
    // New function to print questions WITH answers
-   const handlePrintKeys = () => {
+   const handlePrintKeys = async () => {
        setActiveTab('QUESTIONS');
        setShowAnswers(true);
+       
+       // Wait for React State update and DOM render
+       await new Promise(resolve => setTimeout(resolve, 300)); // Increased to 300ms
+
+       // Force MathJax typeset on the newly rendered answers
+       if(window.MathJax && window.MathJax.typesetPromise) {
+           try {
+               await window.MathJax.typesetPromise();
+           } catch(e) {
+               console.error("MathJax typesetting failed", e);
+           }
+       }
+
+       // Final small delay for layout stability before print
        setTimeout(() => {
            window.print();
-       }, 500); // Allow render time for answer blocks
+       }, 500); 
    };
 
    // Separate Export Functions
@@ -619,8 +632,8 @@ const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) 
 
                                                 {/* Answer Key (Review Mode) */}
                                                 {showAnswers && (
-                                                    <div className="mt-4 p-4 bg-green-50 border border-green-200 text-xs font-sans rounded-xl break-inside-avoid no-print shadow-sm flex items-start gap-3">
-                                                        <div className="p-1.5 bg-green-200 text-green-700 rounded-lg">
+                                                    <div className="mt-4 p-4 bg-green-50 border border-green-200 text-xs font-sans rounded-xl break-inside-avoid shadow-sm flex items-start gap-3 print:bg-green-50 print:border-green-200">
+                                                        <div className="p-1.5 bg-green-200 text-green-700 rounded-lg print:bg-green-200 print:text-green-800">
                                                             <CheckCircle2 size={16}/>
                                                         </div>
                                                         <div>
@@ -1211,12 +1224,12 @@ const CreateQuiz = ({ user, onUpdateCredits }: { user: User; onUpdateCredits: (c
                 <div>
                     <label className="block text-sm font-medium mb-3 dark:text-slate-300">Level Kognitif (Bloom)</label>
                     <div className="flex flex-wrap gap-2">
-                    {Object.values(CognitiveLevel).map((c: any) => (
+                    {Object.values(CognitiveLevel).map((c: string) => (
                         <button
                             key={c}
                             type="button"
-                            onClick={() => toggleCognitive(c)}
-                            className={`w-10 h-10 rounded-lg text-xs font-bold border transition-all ${selectedCognitive.includes(c) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}
+                            onClick={() => toggleCognitive(c as CognitiveLevel)}
+                            className={`w-10 h-10 rounded-lg text-xs font-bold border transition-all ${selectedCognitive.includes(c as CognitiveLevel) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}
                         >
                             {c}
                         </button>
