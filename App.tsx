@@ -377,13 +377,19 @@ const Dashboard = ({ user }: { user: User }) => {
   const [showDonation, setShowDonation] = useState(false);
   useEffect(() => {
     const loadStats = async () => {
-      const quizzes = await dbService.getQuizzes();
-      setStats({ quizCount: quizzes.length, generated: quizzes.length });
+      // Filter logic: Admin sees all, Teacher sees only theirs
+      const userId = user.role === Role.ADMIN ? undefined : user.id;
+      const quizzes = await dbService.getQuizzes(userId);
+      
+      // Calculate total questions for 'Bank Soal'
+      const totalQuestions = quizzes.reduce((acc, q) => acc + (q.questions ? q.questions.length : 0), 0);
+      
+      setStats({ quizCount: quizzes.length, generated: totalQuestions });
       const s = await dbService.getSettings();
       setSettings(s);
     };
     loadStats();
-  }, []);
+  }, [user]);
   const isCronActive = settings?.cron.enabled || false;
   const data = [{ name: 'Sen', generated: 40, published: 24 }, { name: 'Sel', generated: 30, published: 13 }, { name: 'Rab', generated: 20, published: 98 }, { name: 'Kam', generated: 27, published: 39 }, { name: 'Jum', generated: 18, published: 48 }];
   return (
@@ -398,7 +404,7 @@ const Dashboard = ({ user }: { user: User }) => {
         </div>
         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:scale-[1.02] transition-transform">
             <div className="flex items-center justify-between">
-              <div><p className="text-sm text-slate-500 dark:text-slate-400">Bank Soal</p><p className="text-2xl font-bold text-slate-800 dark:text-white mt-1">{stats.generated}</p></div>
+              <div><p className="text-sm text-slate-500 dark:text-slate-400">Total Soal (Bank)</p><p className="text-2xl font-bold text-slate-800 dark:text-white mt-1">{stats.generated}</p></div>
               <div className="p-3 rounded-xl bg-brand-500 bg-opacity-10"><Database className="w-6 h-6 text-brand-500" /></div>
             </div>
         </div>
