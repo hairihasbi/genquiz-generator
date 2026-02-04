@@ -1,16 +1,35 @@
 import { GoogleGenAI, Type, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { Question, QuestionType, QuizGenerationParams, Blueprint } from "../types";
 
-// Initialize helper
+// Helper to ensure API Key is selected (for AI Studio environments)
+const ensureApiKey = async () => {
+  const win = window as any;
+  if (win.aistudio) {
+    try {
+      const hasKey = await win.aistudio.hasSelectedApiKey();
+      if (!hasKey) {
+        await win.aistudio.openSelectKey();
+      }
+    } catch (e) {
+      console.warn("AI Studio key selection failed", e);
+    }
+  }
+};
+
+// Initialize helper - Create client ONLY when needed to ensure fresh key
 const createAIClient = () => {
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // If process.env.API_KEY is missing, it might be handled by internal platform proxy or allow empty for prompt
+  return new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 };
 
 // --- SYSTEM HEALTH CHECK ---
 export const validateGeminiConnection = async (): Promise<{success: boolean, message: string, latency: number, keyCount: number}> => {
   const startTime = Date.now();
   
-  if (!process.env.API_KEY) {
+  // Try to ensure key first if possible (though this runs in background)
+  if (typeof window !== 'undefined' && (window as any).aistudio) {
+      // Don't force open dialog here, just check
+  } else if (!process.env.API_KEY) {
     return { success: false, message: "API_KEY not found in environment variables", latency: 0, keyCount: 0 };
   }
 
@@ -92,10 +111,13 @@ export const generateQuizContent = async (
   params: QuizGenerationParams,
   factCheck: boolean = true
 ): Promise<{ questions: Question[], blueprint: Blueprint[] }> => {
+  // 1. Ensure API Key is available/selected
+  await ensureApiKey();
+
   const textModel = 'gemini-3-flash-preview';
   const ai = createAIClient();
 
-  // 1. Construct the System Instruction
+  // 2. Construct the System Instruction
   const subjectSpecifics = getSubjectInstruction(params.subject, params.subjectCategory);
   
   const cognitiveRange = params.cognitiveLevels.join(', ');
@@ -157,7 +179,7 @@ export const generateQuizContent = async (
      systemInstruction += `\nSTRICT FACT CHECKING: Ensure all historical dates, scientific formulas, and factual statements are verified. If uncertain about a specific detail, verify logic step-by-step.`;
   }
 
-  // 2. Define Schema
+  // 3. Define Schema
   const responseSchema = {
     type: Type.OBJECT,
     properties: {
@@ -196,7 +218,7 @@ export const generateQuizContent = async (
   };
 
   try {
-    // 3. Generate Text Content
+    // 4. Generate Text Content
     const response = await ai.models.generateContent({
       model: textModel,
       contents: [
@@ -257,7 +279,7 @@ export const generateQuizContent = async (
         throw new Error("Gagal memproses format data dari AI (Invalid JSON). Silakan coba lagi.");
     }
     
-    // 4. Post-process & Sanitize Math
+    // 5. Post-process & Sanitize Math
     const processedQuestions = parsed.questions.map((q: any, idx: number) => ({
       ...q,
       id: `gen-${Date.now()}-${idx}`,
@@ -282,6 +304,7 @@ export const generateQuizContent = async (
 };
 
 export const generateImageForQuestion = async (prompt: string): Promise<string> => {
+  await ensureApiKey(); // Ensure key for image gen too
   const imageModel = 'gemini-2.5-flash-image';
   const ai = createAIClient();
 
