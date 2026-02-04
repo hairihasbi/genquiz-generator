@@ -1,39 +1,40 @@
 import { GoogleGenAI, Type, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { Question, QuestionType, QuizGenerationParams, Blueprint } from "../types";
 
-// Helper to ensure API Key is selected (for AI Studio environments)
-const ensureApiKey = async () => {
-  const win = window as any;
-  if (win.aistudio) {
-    try {
-      const hasKey = await win.aistudio.hasSelectedApiKey();
-      if (!hasKey) {
-        await win.aistudio.openSelectKey();
-      }
-    } catch (e) {
-      console.warn("AI Studio key selection failed", e);
-    }
+// --- API KEY ROTATION LOGIC ---
+const getApiKey = (): string => {
+  const envKeys = process.env.API_KEY;
+  if (!envKeys) {
+    console.error("API_KEY is missing in environment variables!");
+    return "";
   }
+  // Support multiple keys separated by comma for rotation
+  const keys = envKeys.split(',').map(k => k.trim()).filter(k => k.length > 0);
+  if (keys.length === 0) return "";
+  
+  // Pick random key to distribute load
+  const selectedKey = keys[Math.floor(Math.random() * keys.length)];
+  return selectedKey;
 };
 
-// Initialize helper - Create client ONLY when needed to ensure fresh key
+// Initialize helper (We will re-init inside function to ensure rotation works per-request if needed, 
+// strictly speaking GoogleGenAI instance is cheap to create)
 const createAIClient = () => {
-  // If process.env.API_KEY is missing, it might be handled by internal platform proxy or allow empty for prompt
-  return new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  return new GoogleGenAI({ apiKey: getApiKey() });
 };
 
 // --- SYSTEM HEALTH CHECK ---
 export const validateGeminiConnection = async (): Promise<{success: boolean, message: string, latency: number, keyCount: number}> => {
   const startTime = Date.now();
-  
-  // Try to ensure key first if possible (though this runs in background)
-  if (typeof window !== 'undefined' && (window as any).aistudio) {
-      // Don't force open dialog here, just check
-  } else if (!process.env.API_KEY) {
+  const envKeys = process.env.API_KEY || "";
+  const keys = envKeys.split(',').map(k => k.trim()).filter(k => k.length > 0);
+
+  if (keys.length === 0) {
     return { success: false, message: "API_KEY not found in environment variables", latency: 0, keyCount: 0 };
   }
 
   try {
+    // Use the existing helper to create client (picks a random key)
     const ai = createAIClient();
     
     // Perform a minimal token generation task using the fastest model
@@ -43,9 +44,9 @@ export const validateGeminiConnection = async (): Promise<{success: boolean, mes
     });
 
     const duration = Date.now() - startTime;
-    return { success: true, message: "Active & Responding", latency: duration, keyCount: 1 };
+    return { success: true, message: "Active & Responding", latency: duration, keyCount: keys.length };
   } catch (error: any) {
-    return { success: false, message: error.message || "Connection failed", latency: 0, keyCount: 1 };
+    return { success: false, message: error.message || "Connection failed", latency: 0, keyCount: keys.length };
   }
 };
 
@@ -111,13 +112,10 @@ export const generateQuizContent = async (
   params: QuizGenerationParams,
   factCheck: boolean = true
 ): Promise<{ questions: Question[], blueprint: Blueprint[] }> => {
-  // 1. Ensure API Key is available/selected
-  await ensureApiKey();
-
   const textModel = 'gemini-3-flash-preview';
-  const ai = createAIClient();
+  const ai = createAIClient(); // Use rotated key
 
-  // 2. Construct the System Instruction
+  // 1. Construct the System Instruction
   const subjectSpecifics = getSubjectInstruction(params.subject, params.subjectCategory);
   
   const cognitiveRange = params.cognitiveLevels.join(', ');
@@ -153,33 +151,15 @@ export const generateQuizContent = async (
     6. Output JSON ONLY.
   `;
 
-  // --- HANDLING READING MODES ---
-  if (params.readingMode === 'grouped') {
-    systemInstruction += `\n
-    7. GROUPED STIMULUS MODE (Long Paragraph):
-       - Generate a single, comprehensive, long reading passage (narrative/expository/dialogue) relevant to the topic (approx 300-500 words).
-       - This passage MUST be placed in the 'stimulus' field of the **FIRST** question only.
-       - The 'stimulus' field for all subsequent questions must be empty (null or "").
-       - All generated questions must relate to this single passage.
-    `;
-  } else if (params.readingMode === 'simple') {
-    systemInstruction += `\n
-    7. SIMPLE STIMULUS MODE:
-       - Every question must include a short, unique 'stimulus' text (paragraph, quote, or case study) acting as context.
-    `;
-  } else {
-    // None
-    systemInstruction += `\n
-    7. NO STIMULUS MODE:
-       - Do not include reading passages. Questions should be direct. 'stimulus' field should be null.
-    `;
+  if (params.enableReadingPassages) {
+    systemInstruction += `\n7. STIMULUS: Provide a 'stimulus' string (reading passage, dialogue, case study) for questions that require context.`;
   }
 
   if (factCheck) {
      systemInstruction += `\nSTRICT FACT CHECKING: Ensure all historical dates, scientific formulas, and factual statements are verified. If uncertain about a specific detail, verify logic step-by-step.`;
   }
 
-  // 3. Define Schema
+  // 2. Define Schema
   const responseSchema = {
     type: Type.OBJECT,
     properties: {
@@ -195,7 +175,7 @@ export const generateQuizContent = async (
             explanation: { type: Type.STRING },
             difficulty: { type: Type.STRING },
             cognitiveLevel: { type: Type.STRING },
-            stimulus: { type: Type.STRING, nullable: true, description: "Reading passage or context." },
+            stimulus: { type: Type.STRING, nullable: true, description: "Reading passage or context if enabled." },
             imagePrompt: { type: Type.STRING, nullable: true, description: "Prompt for Gemini Image gen if visual is needed." },
           },
           required: ['text', 'type', 'options', 'correctAnswer', 'explanation', 'difficulty', 'cognitiveLevel']
@@ -218,14 +198,14 @@ export const generateQuizContent = async (
   };
 
   try {
-    // 4. Generate Text Content
+    // 3. Generate Text Content
     const response = await ai.models.generateContent({
       model: textModel,
       contents: [
         {
           role: 'user',
           parts: [
-            { text: `Generate ${params.questionCount} questions about ${params.topic}. Reading Mode: ${params.readingMode}.` },
+            { text: `Generate ${params.questionCount} questions about ${params.topic}.` },
             // If reference image exists, add it to prompt context
             ...(params.refImageBase64 ? [{
               inlineData: {
@@ -241,6 +221,7 @@ export const generateQuizContent = async (
         responseMimeType: "application/json",
         responseSchema: responseSchema,
         temperature: 0.7,
+        maxOutputTokens: 8192,
         // Add Safety Settings to prevent blocking harmless educational content
         safetySettings: [
           { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -279,7 +260,7 @@ export const generateQuizContent = async (
         throw new Error("Gagal memproses format data dari AI (Invalid JSON). Silakan coba lagi.");
     }
     
-    // 5. Post-process & Sanitize Math
+    // 4. Post-process & Sanitize Math
     const processedQuestions = parsed.questions.map((q: any, idx: number) => ({
       ...q,
       id: `gen-${Date.now()}-${idx}`,
@@ -304,9 +285,8 @@ export const generateQuizContent = async (
 };
 
 export const generateImageForQuestion = async (prompt: string): Promise<string> => {
-  await ensureApiKey(); // Ensure key for image gen too
   const imageModel = 'gemini-2.5-flash-image';
-  const ai = createAIClient();
+  const ai = createAIClient(); // Use rotated key
 
   try {
     const response = await ai.models.generateContent({
