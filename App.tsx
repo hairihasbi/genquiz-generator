@@ -23,7 +23,7 @@ import {
   FileText,
   Download,
   Eye,
-  EyeOff, 
+  EyeOff,
   RefreshCw,
   Trash2,
   CheckCircle2,
@@ -577,167 +577,406 @@ const UserManagement = () => {
     );
 };
 
-// 4. Quiz Result View
-const QuizResultView = ({ quiz, onClose }: { quiz: Quiz, onClose: () => void }) => {
-  const [showKey, setShowKey] = useState(false);
-  
-  const handlePrint = () => {
-    window.print();
-  };
+// 4. Quiz Result View (Redesigned & Fixed)
+const QuizResultView = ({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) => {
+   const [paperSize, setPaperSize] = useState<'A4' | 'Folio'>('A4');
+   const [showAnswers, setShowAnswers] = useState(false);
+   const [activeTab, setActiveTab] = useState<'QUESTIONS' | 'BLUEPRINT'>('QUESTIONS');
 
-  const downloadWord = () => {
-     const header = `
-     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-     <head><meta charset='utf-8'><title>${quiz.title}</title>
-     <style>body{font-family:Arial} .question{margin-bottom:1em} .options{margin-left:1em}</style>
-     </head><body>
-     <h1>${quiz.title}</h1>
-     <p>Subject: ${quiz.subject} | Grade: ${quiz.grade}</p>
-     <hr/>
-     `;
-     
-     let body = "";
-     quiz.questions.forEach((q, i) => {
-         body += `<div class='question'><b>${i+1}. ${q.text}</b><br/>`;
-         if(q.imageUrl) body += `<img src="${q.imageUrl}" width="200" /><br/>`;
-         if(q.type === QuestionType.MULTIPLE_CHOICE && q.options) {
-             body += `<div class='options'>`;
-             q.options.forEach((opt, idx) => {
-                 body += `${String.fromCharCode(65+idx)}. ${opt}<br/>`;
-             });
-             body += `</div>`;
-         }
-         body += `</div>`;
-     });
+   useEffect(() => {
+     if(window.MathJax) {
+       setTimeout(() => {
+           window.MathJax.typesetPromise?.();
+       }, 500);
+     }
+   }, [quiz, activeTab, showAnswers]);
 
-     const footer = "</body></html>";
-     const source = header + body + footer;
-     const blob = new Blob(['\ufeff', source], { type: 'application/msword' });
-     const url = URL.createObjectURL(blob);
-     const link = document.createElement('a');
-     link.href = url;
-     link.download = `${quiz.title.replace(/[^a-z0-9]/gi, '_')}.doc`;
-     link.click();
-  };
+   const handlePrint = () => {
+       window.print();
+   };
 
-  return (
-    <div id="quiz-result-view" className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 h-full flex flex-col">
-       {/* Toolbar */}
-       <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center no-print">
-          <div>
-            <h2 className="font-bold text-xl text-slate-800 dark:text-white">{quiz.title}</h2>
-            <p className="text-sm text-slate-500">{quiz.questions.length} Soal • {quiz.subject}</p>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => setShowKey(!showKey)} className="p-2 text-slate-500 hover:text-brand-600 border rounded-lg" title="Toggle Kunci Jawaban">
-                {showKey ? <EyeOff size={20}/> : <Eye size={20}/>}
-            </button>
-            <button onClick={handlePrint} className="p-2 text-slate-500 hover:text-brand-600 border rounded-lg" title="Cetak / PDF">
-                <Printer size={20}/>
-            </button>
-             <button onClick={downloadWord} className="p-2 text-slate-500 hover:text-brand-600 border rounded-lg" title="Download Word">
-                <FileText size={20}/>
-            </button>
-            <button onClick={onClose} className="p-2 text-red-500 hover:bg-red-50 border border-red-100 rounded-lg">
-                <X size={20}/>
-            </button>
-          </div>
-       </div>
+   // New function to print questions WITH answers
+   const handlePrintKeys = async () => {
+       setActiveTab('QUESTIONS');
+       setShowAnswers(true);
+       
+       // Wait for React State update and DOM render
+       await new Promise(resolve => setTimeout(resolve, 300)); // Increased to 300ms
 
-       {/* Scrollable Content */}
-       <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-          <div id="print-area" className="max-w-3xl mx-auto bg-white p-8 sm:p-10 shadow-sm print:shadow-none print:p-0 text-slate-900">
-             <div className="text-center border-b-2 border-black pb-4 mb-8 hidden print:block">
-                <h1 className="text-2xl font-bold uppercase">{quiz.subject}</h1>
-                <p>{quiz.title} | {quiz.grade}</p>
-             </div>
-             
-             <div className="space-y-8">
-                 {quiz.questions.map((q, idx) => (
-                     <div key={q.id || idx} className="avoid-break">
-                         {/* Stimulus if needed */}
-                         {q.stimulus && (
-                             <div className="bg-slate-50 p-4 rounded-lg mb-4 text-sm italic border-l-4 border-slate-300 wacana-box">
-                                 <MathRenderer content={q.stimulus} />
-                             </div>
-                         )}
+       // Force MathJax typeset on the newly rendered answers
+       if(window.MathJax && window.MathJax.typesetPromise) {
+           try {
+               await window.MathJax.typesetPromise();
+           } catch(e) {
+               console.error("MathJax typesetting failed", e);
+           }
+       }
 
-                         <div className="flex gap-4 print-flex">
-                             <span className="font-bold min-w-[1.5rem]">{idx + 1}.</span>
-                             <div className="flex-1">
-                                 <div className="mb-3">
-                                     <MathRenderer content={q.text} />
-                                 </div>
-                                 
-                                 {q.imageUrl && (
-                                     <img src={q.imageUrl} alt="Soal" className="max-w-xs rounded-lg border mb-3 block" />
-                                 )}
-                                 
-                                 {q.type === QuestionType.MULTIPLE_CHOICE && q.options && (
-                                     <div className="grid grid-cols-1 gap-2 pl-2 print-grid">
-                                         {q.options.map((opt, i) => (
-                                             <div key={i} className="flex gap-2">
-                                                 <span className="font-bold uppercase text-sm">{String.fromCharCode(65 + i)}.</span>
-                                                 <MathRenderer content={opt} inline />
-                                             </div>
-                                         ))}
-                                     </div>
-                                 )}
+       // Final small delay for layout stability before print
+       setTimeout(() => {
+           window.print();
+       }, 500); 
+   };
 
-                                 {q.type === QuestionType.ESSAY && (
-                                     <div className="h-20 border-b border-dashed border-slate-300 mt-4"></div>
-                                 )}
-                             </div>
-                         </div>
-                         
-                         {/* Answer Key Display (No Print) */}
-                         {showKey && (
-                            <div className="mt-2 ml-10 p-3 bg-green-50 rounded-lg text-sm text-green-800 border border-green-200 no-print">
-                                <strong>Jawaban:</strong> <MathRenderer content={Array.isArray(q.correctAnswer) ? q.correctAnswer.join(', ') : q.correctAnswer} inline />
-                                <br/>
-                                <strong>Pembahasan:</strong> <MathRenderer content={q.explanation} inline />
+   // Separate Export Functions
+   const handleExportDocx = (type: 'QUESTIONS' | 'BLUEPRINT') => {
+       if (activeTab !== type) {
+           alert(`Silakan pindah ke tab ${type === 'QUESTIONS' ? 'Soal' : 'Kisi-Kisi'} terlebih dahulu untuk mengunduh dokumen tersebut.`);
+           return;
+       }
+
+       const content = document.getElementById('print-area')?.innerHTML;
+       
+       const css = `
+         <style>
+           @page { size: ${paperSize === 'A4' ? '210mm 297mm' : '215mm 330mm'} portrait; margin: 25mm; }
+           body { font-family: 'Times New Roman', serif; font-size: 11pt; line-height: 1.5; color: #000; }
+           .font-arabic { font-family: 'Traditional Arabic', 'Amiri', 'Arial', serif; direction: rtl; text-align: right; font-size: 16pt; margin-bottom: 5px; }
+           .font-jp { font-family: 'MS Mincho', 'Yu Mincho', 'Noto Sans JP', sans-serif; }
+           .font-kr { font-family: 'Malgun Gothic', 'Batang', 'Noto Serif KR', sans-serif; }
+           .font-tc { font-family: 'Microsoft JhengHei', 'SimSun', 'Noto Sans TC', sans-serif; }
+           mjx-container { outline: none !important; border: 0 !important; display: inline-block !important; }
+           svg { vertical-align: middle !important; max-width: 100%; height: auto; }
+           .grid { display: grid !important; grid-template-columns: repeat(2, 1fr); }
+           .wacana-box { border: 1px solid #000; padding: 10px; margin-bottom: 10px; background-color: #f9f9f9; font-style: italic; }
+           .text-right { text-align: right; }
+           .font-bold { font-weight: bold; }
+           .text-center { text-align: center; }
+           .uppercase { text-transform: uppercase; }
+           table { border-collapse: collapse; width: 100%; }
+           th, td { border: 1px solid black; padding: 5px; }
+           img { max-width: 5cm; height: auto; display: block; margin: 10px auto; border: 1px solid #ccc; }
+         </style>
+       `;
+
+       const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${quiz.title}</title>${css}</head><body>`;
+       const footer = "</body></html>";
+       const sourceHTML = header + content + footer;
+       
+       const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
+       const fileDownload = document.createElement("a");
+       document.body.appendChild(fileDownload);
+       fileDownload.href = source;
+       fileDownload.download = `${quiz.title.replace(/\s+/g, '_')}_${type}.doc`;
+       fileDownload.click();
+       document.body.removeChild(fileDownload);
+   };
+
+   // Dimensions logic
+   const dims = paperSize === 'A4' ? 'w-[210mm] min-h-[297mm]' : 'w-[225mm] min-h-[330mm]';
+
+   // Helper to display type label
+   const getTypeLabel = (type: QuestionType) => {
+       switch(type) {
+           case QuestionType.MULTIPLE_CHOICE: return "Pilihan Ganda";
+           case QuestionType.COMPLEX_MULTIPLE_CHOICE: return "Pilihan Ganda Kompleks";
+           case QuestionType.TRUE_FALSE: return "Benar / Salah";
+           case QuestionType.SHORT_ANSWER: return "Isian Singkat";
+           case QuestionType.ESSAY: return "Uraian / Essay";
+           default: return "Soal";
+       }
+   };
+
+   return (
+       <div id="quiz-result-view" className="fixed inset-0 z-[60] bg-slate-100 dark:bg-slate-950 flex flex-col overflow-hidden font-sans">
+           
+           {/* Modern Glassmorphism Header (No Print) */}
+           <div className="no-print fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+               <div className="max-w-[1920px] mx-auto px-4 lg:px-6 h-20 flex justify-between items-center gap-4">
+                   
+                   {/* Left: Branding & Title */}
+                   <div className="flex items-center gap-4 flex-1 min-w-0">
+                       <button 
+                           onClick={onClose} 
+                           className="flex-shrink-0 group flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-600 transition-all active:scale-95 border border-slate-200 dark:border-slate-700"
+                           title="Kembali"
+                       >
+                           <ChevronLeft size={22} className="group-hover:-translate-x-0.5 transition-transform"/>
+                       </button>
+                       <div className="flex flex-col min-w-0">
+                            <h3 className="font-extrabold text-lg md:text-xl text-slate-800 dark:text-white truncate tracking-tight leading-tight">
+                                {quiz.title}
+                            </h3>
+                            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mt-0.5">
+                                <span className="bg-brand-100 text-brand-700 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider whitespace-nowrap">{quiz.subject}</span>
+                                <span className="hidden sm:inline">•</span>
+                                <span className="hidden sm:inline">{quiz.questions.length} Butir Soal</span>
                             </div>
-                         )}
-                     </div>
-                 ))}
-             </div>
-          </div>
+                       </div>
+                   </div>
+
+                   {/* Center: View Controls */}
+                   <div className="hidden xl:flex items-center bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner flex-shrink-0 mx-4">
+                       <button onClick={() => setActiveTab('QUESTIONS')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'QUESTIONS' ? 'bg-white dark:bg-slate-700 text-brand-600 shadow-md ring-1 ring-black/5 scale-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}>
+                           <FileText size={16}/> Soal
+                       </button>
+                       <button onClick={() => setActiveTab('BLUEPRINT')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'BLUEPRINT' ? 'bg-white dark:bg-slate-700 text-brand-600 shadow-md ring-1 ring-black/5 scale-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}>
+                           <Terminal size={16}/> Kisi-Kisi
+                       </button>
+                   </div>
+
+                   {/* Right: Actions */}
+                   <div className="flex items-center justify-end gap-2 flex-shrink-0">
+                       
+                       {/* Settings Group */}
+                       <div className="hidden lg:flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+                           <div className="relative group">
+                               <select 
+                                   value={paperSize} 
+                                   onChange={(e) => setPaperSize(e.target.value as any)} 
+                                   className="appearance-none bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs pl-3 pr-8 py-2 rounded-lg border border-slate-200 dark:border-slate-700 focus:border-brand-500 focus:ring-0 cursor-pointer hover:bg-slate-50 transition-colors shadow-sm"
+                               >
+                                   <option value="A4">A4</option>
+                                   <option value="Folio">F4</option>
+                               </select>
+                               <ChevronDown size={14} className="absolute right-2 top-2.5 text-slate-400 pointer-events-none"/>
+                           </div>
+                           
+                           {activeTab === 'QUESTIONS' && (
+                               <button 
+                                  onClick={() => setShowAnswers(!showAnswers)} 
+                                  className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 shadow-sm border ${showAnswers ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                                  title="Tampilkan/Sembunyikan Kunci Jawaban"
+                               >
+                                   {showAnswers ? <Eye size={14}/> : <EyeOff size={14}/>}
+                                   <span className="hidden xl:inline">{showAnswers ? 'Kunci' : 'Kunci'}</span>
+                               </button>
+                           )}
+                       </div>
+
+                       <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1 hidden lg:block"></div>
+
+                       {/* Export Group */}
+                       <div className="flex items-center gap-2">
+                            <button onClick={() => handleExportDocx('QUESTIONS')} className="p-2 md:px-3 md:py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-bold transition-all flex items-center gap-2" title="Download Word Soal">
+                                <FileText size={16}/> <span className="hidden lg:inline">Word</span>
+                            </button>
+                            <button onClick={() => handleExportDocx('BLUEPRINT')} className="p-2 md:px-3 md:py-2 bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-200 rounded-lg text-xs font-bold transition-all flex items-center gap-2" title="Download Word Kisi-Kisi">
+                                <Terminal size={16}/> <span className="hidden lg:inline">Kisi</span>
+                            </button>
+                            <button onClick={handlePrintKeys} className="p-2 md:px-3 md:py-2 bg-green-50 text-green-600 hover:bg-green-100 border border-green-200 rounded-lg text-xs font-bold transition-all flex items-center gap-2" title="Download PDF Soal + Kunci">
+                                <Printer size={16}/> <span className="hidden lg:inline">+Kunci</span>
+                            </button>
+                            <button onClick={handlePrint} className="p-2 md:px-4 md:py-2 bg-gradient-to-r from-brand-600 to-orange-500 text-white rounded-lg text-xs font-bold shadow-lg shadow-brand-500/30 hover:shadow-brand-500/50 hover:scale-105 transition-all flex items-center gap-2">
+                                <Printer size={16}/> <span className="hidden lg:inline">PDF</span>
+                            </button>
+                       </div>
+                   </div>
+               </div>
+               
+               {/* Mobile Tabs */}
+               <div className="xl:hidden flex justify-center pb-3 gap-2 border-t border-slate-100 dark:border-slate-800 pt-2 bg-white/50 dark:bg-slate-900/50">
+                   <button onClick={() => setActiveTab('QUESTIONS')} className={`px-6 py-1.5 text-xs font-bold rounded-full transition-all border ${activeTab === 'QUESTIONS' ? 'bg-brand-500 text-white border-brand-500 shadow-md' : 'bg-white text-slate-500 border-slate-200'}`}>Soal</button>
+                   <button onClick={() => setActiveTab('BLUEPRINT')} className={`px-6 py-1.5 text-xs font-bold rounded-full transition-all border ${activeTab === 'BLUEPRINT' ? 'bg-brand-500 text-white border-brand-500 shadow-md' : 'bg-white text-slate-500 border-slate-200'}`}>Kisi-Kisi</button>
+                   <button onClick={() => setShowAnswers(!showAnswers)} className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all border ${showAnswers ? 'bg-green-500 text-white border-green-500' : 'bg-white text-slate-500 border-slate-200'}`}>
+                       {showAnswers ? <Eye size={14}/> : <EyeOff size={14}/>}
+                   </button>
+               </div>
+           </div>
+
+           {/* Workspace / Paper Area */}
+           <div className="flex-1 overflow-y-auto custom-scrollbar pt-32 pb-20 px-4 md:px-8 bg-slate-100 dark:bg-slate-950 bg-[url('https://www.transparenttextures.com/patterns/graphy.png')] flex justify-center relative">
+                
+                {/* Paper Container */}
+                <div id="print-area" className={`relative bg-white shadow-2xl ${dims} p-[25mm] text-black font-serif text-[11pt] leading-normal transition-all duration-500 origin-top animate-fade-in-up mb-20`}>
+                       
+                       {/* Document Watermark (Optional Visual) */}
+                       <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-slate-100 to-transparent pointer-events-none no-print"></div>
+
+                       {/* Header Document */}
+                       <div className="border-b-2 border-black pb-4 mb-8 text-center relative avoid-break-after print:mb-2">
+                           <div className="absolute top-0 left-0 text-xs font-sans text-slate-400 no-print">Generated by Gen-Z Quiz</div>
+                           <h1 className="font-bold text-2xl uppercase tracking-wide mb-2 mt-4 font-sans">Bank Soal {quiz.level}</h1>
+                           <h2 className="font-bold text-lg uppercase mb-4 text-slate-800">{quiz.subject} - {quiz.grade}</h2>
+                           
+                           <div className="flex justify-between items-center text-sm font-bold border-t-2 border-black pt-3 mt-4">
+                               <div className="flex flex-col items-start gap-1">
+                                   <span>Topik: {quiz.topic}</span>
+                                   <span className="font-normal text-xs text-slate-600">Kode: {quiz.id.slice(-6)}</span>
+                               </div>
+                               <div className="flex flex-col items-end gap-1">
+                                   <span>Waktu: 90 Menit</span>
+                                   <span>Jumlah: {quiz.questions.length} Soal</span>
+                               </div>
+                           </div>
+                       </div>
+
+                       {activeTab === 'QUESTIONS' ? (
+                           <div className="space-y-8">
+                               {quiz.questions.map((q: Question, idx: number) => {
+                                   // Check if type changed from previous question
+                                   const isNewType = idx === 0 || quiz.questions[idx - 1].type !== q.type;
+                                   
+                                   return (
+                                     <React.Fragment key={q.id}>
+                                       {/* Section Header if Type Changed */}
+                                       {isNewType && (
+                                           <div className="w-full my-6 py-2 border-y-2 border-slate-200 print:border-black font-bold text-center uppercase tracking-widest text-slate-700 print:text-black avoid-break-after text-sm bg-slate-50 print:bg-transparent">
+                                               -- {getTypeLabel(q.type)} --
+                                           </div>
+                                       )}
+                                       
+                                       <div className="avoid-break group relative">
+                                           {/* Wacana / Stimulus Display */}
+                                           {q.stimulus && (
+                                               <div className="wacana-box mb-4 p-4 bg-slate-50 border-l-4 border-slate-400 text-sm rounded-r-lg italic text-slate-800 relative">
+                                                   <span className="absolute -top-3 left-2 bg-slate-200 text-[10px] font-bold px-2 py-0.5 rounded text-slate-600 uppercase no-print">Stimulus</span>
+                                                   <div className={`${quiz.subject === 'Bahasa Arab' ? 'font-arabic text-right' : ''}`}>
+                                                       <MathRenderer content={q.stimulus} />
+                                                   </div>
+                                               </div>
+                                           )}
+
+                                           {/* Question Container - Flex for proper alignment of Number vs Text */}
+                                           <div className="flex gap-4 print-flex items-start">
+                                               {/* Question Number */}
+                                               <div className="flex-shrink-0 w-8 font-bold text-lg text-right leading-tight pt-0.5">
+                                                   {idx + 1}.
+                                               </div>
+
+                                               <div className="flex-1 min-w-0">
+                                                    {/* Question Text */}
+                                                    <div className={`mb-4 text-justify ${quiz.subject === 'Bahasa Arab' ? 'font-arabic text-right text-xl' : ''}`}>
+                                                        <MathRenderer content={q.text} />
+                                                    </div>
+                                                    
+                                                    {/* Image */}
+                                                    {q.imageUrl && (
+                                                        <div className="my-4 flex justify-center bg-slate-50 p-2 border border-slate-200 rounded no-print-border">
+                                                            <img src={q.imageUrl} alt="Visual" className="max-h-[6cm] object-contain" />
+                                                        </div>
+                                                    )}
+
+                                                    {/* Options */}
+                                                    {(q.type === QuestionType.MULTIPLE_CHOICE || q.type === QuestionType.COMPLEX_MULTIPLE_CHOICE) && (
+                                                        // Explicit Grid for Print to aligned options like A.. B.. / C.. D..
+                                                        <div className={`mt-3 ${q.options && q.options.some((o: string) => o.length > 60) ? 'flex flex-col gap-3' : 'grid grid-cols-2 gap-x-12 gap-y-2 print-grid'}`}>
+                                                            {q.options?.map((opt: string, i: number) => (
+                                                                <div key={i} className="flex gap-3 items-start group/opt">
+                                                                    <span className="font-bold text-sm min-w-[24px] uppercase">{String.fromCharCode(65+i)}.</span>
+                                                                    <div className="text-sm pt-0.5 group-hover/opt:text-slate-900 transition-colors">
+                                                                        <MathRenderer content={opt} inline />
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    {/* True/False Options Display (ADDED) */}
+                                                    {q.type === QuestionType.TRUE_FALSE && (
+                                                        <div className="mt-3 flex gap-8 pl-1 select-none">
+                                                            {['Benar', 'Salah'].map((opt) => (
+                                                                <div key={opt} className="flex items-center gap-2.5">
+                                                                    <div className="w-5 h-5 rounded-full border-2 border-slate-300 print:border-black flex items-center justify-center"></div>
+                                                                    <span className="font-bold text-sm text-slate-700 print:text-black">{opt}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Answer Key (Review Mode) */}
+                                                    {showAnswers && (
+                                                        <div className="mt-4 p-4 bg-green-50 border border-green-200 text-xs font-sans rounded-xl break-inside-avoid shadow-sm flex items-start gap-3 print:bg-green-50 print:border-green-200">
+                                                            <div className="p-1.5 bg-green-200 text-green-700 rounded-lg print:bg-green-200 print:text-green-800">
+                                                                <CheckCircle2 size={16}/>
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-bold text-green-800 mb-1">Kunci Jawaban: {Array.isArray(q.correctAnswer) ? q.correctAnswer.join(', ') : q.correctAnswer}</p>
+                                                                <div className="text-slate-600 leading-relaxed">
+                                                                    <span className="font-semibold text-slate-800">Pembahasan:</span> <MathRenderer content={q.explanation} inline />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                               </div>
+                                           </div>
+                                       </div>
+                                     </React.Fragment>
+                                   );
+                               })}
+                           </div>
+                       ) : (
+                           <div>
+                               <div className="flex items-center justify-center gap-2 mb-6 print:mb-2 avoid-break-after">
+                                   <div className="h-px w-12 bg-black"></div>
+                                   <h3 className="font-bold text-center uppercase tracking-widest text-sm">Kisi-Kisi Penulisan Soal</h3>
+                                   <div className="h-px w-12 bg-black"></div>
+                               </div>
+                               
+                               <table className="w-full border-collapse border border-black text-sm">
+                                   <thead>
+                                       <tr className="bg-slate-100">
+                                           <th className="border border-black p-3 w-12 text-center font-bold">No</th>
+                                           <th className="border border-black p-3 text-left font-bold">Kompetensi Dasar / CP</th>
+                                           <th className="border border-black p-3 text-left font-bold">Indikator Soal</th>
+                                           <th className="border border-black p-3 w-24 text-center font-bold">Level</th>
+                                           <th className="border border-black p-3 w-24 text-center font-bold">Kesulitan</th>
+                                           <th className="border border-black p-3 w-24 text-center font-bold">Bentuk</th>
+                                       </tr>
+                                   </thead>
+                                   <tbody>
+                                       {quiz.blueprint.map((bp, idx) => (
+                                           <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                                               <td className="border border-black p-3 text-center font-bold">{bp.questionNumber}</td>
+                                               <td className="border border-black p-3 align-top">{bp.basicCompetency}</td>
+                                               <td className="border border-black p-3 align-top">{bp.indicator}</td>
+                                               <td className="border border-black p-3 text-center align-middle">
+                                                   <span className="inline-block px-2 py-1 rounded bg-blue-100 text-blue-800 text-xs font-bold no-print-bg">{bp.cognitiveLevel}</span>
+                                                   <span className="hidden print:inline">{bp.cognitiveLevel}</span>
+                                               </td>
+                                               <td className="border border-black p-3 text-center align-middle">{bp.difficulty}</td>
+                                               <td className="border border-black p-3 text-center align-middle">PG</td>
+                                           </tr>
+                                       ))}
+                                   </tbody>
+                               </table>
+                           </div>
+                       )}
+                   </div>
+           </div>
        </div>
-    </div>
-  );
+   );
 };
 
 // 5. History Archive
 const HistoryArchive = ({ user }: { user: User }) => {
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [viewQuiz, setViewQuiz] = useState<Quiz | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState('');
+    const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
 
     const loadQuizzes = async () => {
+        setLoading(true);
+        // Admin sees all, Teacher sees own
         const data = await dbService.getQuizzes(user.role === Role.ADMIN ? undefined : user.id);
         setQuizzes(data);
+        setLoading(false);
     };
 
-    useEffect(() => { loadQuizzes(); }, [user]);
+    useEffect(() => {
+        loadQuizzes();
+    }, [user]);
 
-    const handleDelete = async (id: string, e: React.MouseEvent) => {
-        e.stopPropagation();
-        if(confirm("Hapus quiz ini permanen?")) {
+    const handleDelete = async (id: string) => {
+        if(confirm("Hapus quiz ini secara permanen?")) {
             await dbService.deleteQuiz(id);
             loadQuizzes();
         }
     };
 
-    const handleTogglePublic = async (quiz: Quiz, e: React.MouseEvent) => {
-        e.stopPropagation();
-        await dbService.toggleQuizVisibility(quiz.id, !quiz.isPublic);
+    const handleTogglePublic = async (q: Quiz) => {
+        await dbService.toggleQuizVisibility(q.id, !q.isPublic);
         loadQuizzes();
     };
 
-    const filtered = quizzes.filter(q => q.title.toLowerCase().includes(searchTerm.toLowerCase()) || q.subject.toLowerCase().includes(searchTerm.toLowerCase()));
+    const filtered = quizzes.filter(q => 
+        q.title.toLowerCase().includes(filter.toLowerCase()) || 
+        q.subject.toLowerCase().includes(filter.toLowerCase())
+    );
 
-    if (viewQuiz) {
-        return <QuizResultView quiz={viewQuiz} onClose={() => setViewQuiz(null)} />;
+    // If a quiz is selected, render the Result View FULL PAGE
+    if (selectedQuiz) {
+        return <QuizResultView quiz={selectedQuiz} onClose={() => setSelectedQuiz(null)} />;
     }
 
     return (
@@ -747,56 +986,75 @@ const HistoryArchive = ({ user }: { user: User }) => {
                    <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                        <Archive className="text-brand-600"/> Riwayat & Arsip
                    </h2>
-                   <p className="text-slate-500 text-sm">Kelola semua quiz yang telah Anda buat.</p>
+                   <p className="text-slate-500 text-sm">Kelola bank soal yang telah dibuat.</p>
                </div>
                <div className="relative w-full md:w-64">
                    <input 
-                    type="text" 
-                    placeholder="Cari quiz..." 
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:bg-slate-800 dark:border-slate-700 outline-none focus:ring-2 focus:ring-brand-500"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                      type="text" 
+                      placeholder="Cari quiz..." 
+                      className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:bg-slate-800 dark:border-slate-700 outline-none focus:ring-2 focus:ring-brand-500"
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
                    />
-                   <Search className="absolute left-3 top-3 text-slate-400" size={18}/>
+                   <Search className="absolute left-3 top-2.5 text-slate-400" size={18}/>
                </div>
              </div>
 
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                 {filtered.map(quiz => (
-                     <div key={quiz.id} onClick={() => setViewQuiz(quiz)} className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all cursor-pointer group">
-                         <div className="flex justify-between items-start mb-4">
-                             <div className="p-3 bg-brand-50 text-brand-600 rounded-xl group-hover:bg-brand-500 group-hover:text-white transition-colors">
-                                 <FileText size={24}/>
+             {loading ? (
+                 <div className="text-center py-12">
+                     <RefreshCw className="animate-spin mx-auto text-brand-500 mb-2"/>
+                     <p className="text-slate-500">Memuat arsip...</p>
+                 </div>
+             ) : filtered.length === 0 ? (
+                 <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+                     <Archive size={48} className="mx-auto text-slate-300 mb-4"/>
+                     <p className="text-slate-500">Belum ada quiz yang dibuat.</p>
+                     <Link to="/create-quiz" className="text-brand-600 font-bold hover:underline mt-2 inline-block">Buat Quiz Baru</Link>
+                 </div>
+             ) : (
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                     {filtered.map(q => (
+                         <div key={q.id} className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-md transition-all group">
+                             <div className="flex justify-between items-start mb-3">
+                                 <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded">
+                                     {q.subject}
+                                 </span>
+                                 <div className="flex gap-1">
+                                     <button onClick={() => handleTogglePublic(q)} className={`p-1.5 rounded-lg transition-colors ${q.isPublic ? 'text-green-500 hover:bg-green-50' : 'text-slate-400 hover:bg-slate-100'}`} title={q.isPublic ? "Public" : "Private"}>
+                                         {q.isPublic ? <Share2 size={16}/> : <Lock size={16}/>}
+                                     </button>
+                                     <button onClick={() => handleDelete(q.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                         <Trash2 size={16}/>
+                                     </button>
+                                 </div>
                              </div>
-                             <div className="flex gap-2">
-                                <button onClick={(e) => handleTogglePublic(quiz, e)} className={`p-2 rounded-lg transition-colors ${quiz.isPublic ? 'text-green-500 bg-green-50' : 'text-slate-400 hover:bg-slate-100'}`} title={quiz.isPublic ? 'Public' : 'Private'}>
-                                    {quiz.isPublic ? <Unlock size={16}/> : <Lock size={16}/>}
-                                </button>
-                                <button onClick={(e) => handleDelete(quiz.id, e)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                                     <Trash2 size={16}/>
-                                </button>
+                             
+                             <h3 className="font-bold text-slate-800 dark:text-white mb-1 line-clamp-2 min-h-[3rem]">{q.title}</h3>
+                             
+                             <div className="flex items-center gap-2 text-xs text-slate-500 mb-4">
+                                 <Clock size={14}/>
+                                 <span>{new Date(q.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                 <span>•</span>
+                                 <span>{q.questions.length} Soal</span>
+                             </div>
+
+                             <div className="flex gap-2 mt-auto">
+                                 <button 
+                                     onClick={() => setSelectedQuiz(q)}
+                                     className="flex-1 py-2 bg-brand-50 text-brand-600 dark:bg-slate-700 dark:text-white rounded-xl text-sm font-bold hover:bg-brand-100 dark:hover:bg-slate-600 transition-colors flex items-center justify-center gap-2"
+                                 >
+                                     <Eye size={16}/> Detail
+                                 </button>
                              </div>
                          </div>
-                         <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-1 line-clamp-1">{quiz.title}</h3>
-                         <div className="flex flex-wrap gap-2 mb-4">
-                             <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-md">{quiz.subject}</span>
-                             <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-md">{quiz.questions.length} Q</span>
-                             <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-md">{new Date(quiz.createdAt).toLocaleDateString()}</span>
-                         </div>
-                     </div>
-                 ))}
-                 {filtered.length === 0 && (
-                     <div className="col-span-full py-12 text-center text-slate-400 flex flex-col items-center">
-                         <Archive size={48} className="mb-4 opacity-20"/>
-                         <p>Tidak ada quiz ditemukan.</p>
-                     </div>
-                 )}
-             </div>
+                     ))}
+                 </div>
+             )}
         </div>
     );
 };
 
-// 6. Create Quiz Form (UPDATED)
+// 6. Create Quiz Form
 const SUBJECTS = {
   "Wajib Umum": [
     "Pendidikan Agama Islam dan Budi Pekerti", 
@@ -808,7 +1066,7 @@ const SUBJECTS = {
     "Bahasa Inggris", 
     "Seni Budaya", 
     "PJOK", 
-    "PKWU", 
+    "PKWU",
     "Al-Qur’an Hadis",
     "Akidah Akhlak",
     "Fikih",
@@ -854,8 +1112,8 @@ const CreateQuiz = ({ user, onUpdateCredits }: { user: User; onUpdateCredits: (c
     
     // New: Fact Check State
     const [factCheck, setFactCheck] = useState(true);
-    // New: Reading Mode (replaces simple boolean)
-    const [readingMode, setReadingMode] = useState<'none' | 'simple' | 'grouped'>('none');
+    // New: Enable Reading Passages (Wacana)
+    const [enableReadingPassages, setEnableReadingPassages] = useState(false);
 
     useEffect(() => {
         // Load default setting
@@ -865,9 +1123,9 @@ const CreateQuiz = ({ user, onUpdateCredits }: { user: User; onUpdateCredits: (c
     // Effect to auto-enable wacana for language subjects
     useEffect(() => {
         if (subjectCategory === "Bahasa & Budaya" || subject.includes("Bahasa")) {
-            setReadingMode('grouped'); // Default to grouped for languages usually
+            setEnableReadingPassages(true);
         } else {
-            setReadingMode('none');
+            setEnableReadingPassages(false);
         }
     }, [subject, subjectCategory]);
 
@@ -945,7 +1203,7 @@ const CreateQuiz = ({ user, onUpdateCredits }: { user: User; onUpdateCredits: (c
             subject, topic, questionCount, difficulty, 
             types: selectedTypes, cognitive: selectedCognitive,
             factCheck,
-            readingMode
+            enableReadingPassages
         }, null, 2);
 
         await dbService.addLog("START_GENERATE_QUIZ", `Starting generation for ${subject}.\nParams: ${paramDetails}`, LogType.INFO, user.username);
@@ -973,7 +1231,7 @@ const CreateQuiz = ({ user, onUpdateCredits }: { user: User; onUpdateCredits: (c
                 difficulty,
                 cognitiveLevels: selectedCognitive,
                 languageContext: getLangContext(subject),
-                readingMode // Pass the new param
+                enableReadingPassages // Pass the new param
             }, factCheck); 
 
             setProgress(60);
@@ -1243,43 +1501,26 @@ const CreateQuiz = ({ user, onUpdateCredits }: { user: User; onUpdateCredits: (c
                     </div>
                 </div>
 
-                {/* Reading Passage Selector (New) */}
-                <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
-                    <div className="flex items-center gap-3 mb-3">
+                {/* Reading Passage Toggle (New) */}
+                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
+                    <div className="flex items-center gap-3">
                          <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
                              <BookOpenCheck size={20} />
                          </div>
                          <div>
-                             <h4 className="font-bold text-slate-800 dark:text-white text-sm">Mode Literasi & Wacana</h4>
-                             <p className="text-xs text-slate-500">Pilih strategi wacana/cerita untuk soal.</p>
+                             <h4 className="font-bold text-slate-800 dark:text-white text-sm">Sertakan Wacana / Teks Literasi</h4>
+                             <p className="text-xs text-slate-500">Otomatis generate teks bacaan (cerita, berita, dialog) untuk soal.</p>
                          </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <button
-                            type="button"
-                            onClick={() => setReadingMode('none')}
-                            className={`p-3 rounded-lg border text-left transition-all ${readingMode === 'none' ? 'bg-white border-blue-500 ring-1 ring-blue-500 shadow-sm' : 'bg-slate-100 border-transparent hover:bg-slate-200'}`}
-                        >
-                            <div className="font-bold text-xs text-slate-800">Tanpa Wacana</div>
-                            <div className="text-[10px] text-slate-500">Soal langsung (Matematika/Fakta).</div>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setReadingMode('simple')}
-                            className={`p-3 rounded-lg border text-left transition-all ${readingMode === 'simple' ? 'bg-white border-blue-500 ring-1 ring-blue-500 shadow-sm' : 'bg-slate-100 border-transparent hover:bg-slate-200'}`}
-                        >
-                            <div className="font-bold text-xs text-slate-800">Wacana Per Soal</div>
-                            <div className="text-[10px] text-slate-500">Setiap soal punya cerita pendek unik.</div>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setReadingMode('grouped')}
-                            className={`p-3 rounded-lg border text-left transition-all ${readingMode === 'grouped' ? 'bg-white border-blue-500 ring-1 ring-blue-500 shadow-sm' : 'bg-slate-100 border-transparent hover:bg-slate-200'}`}
-                        >
-                            <div className="font-bold text-xs text-slate-800">Wacana / Narasi Panjang</div>
-                            <div className="text-[10px] text-slate-500">Satu teks panjang untuk beberapa soal (Literasi).</div>
-                        </button>
-                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={enableReadingPassages}
+                            onChange={(e) => setEnableReadingPassages(e.target.checked)}
+                        />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
                 </div>
 
                 {/* Visuals */}

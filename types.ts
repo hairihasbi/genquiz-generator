@@ -139,7 +139,5 @@ export interface QuizGenerationParams {
   
   // Languages
   languageContext: 'ID' | 'AR' | 'JP' | 'KR' | 'CN' | 'EN' | 'DE' | 'FR';
-  
-  // Reading Mode (Updated)
-  readingMode: 'none' | 'simple' | 'grouped';
+  enableReadingPassages?: boolean;
 }
